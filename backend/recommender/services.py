@@ -151,7 +151,8 @@ def get_recommendations(pref_genre, pref_mood, user_age, search_query=None):
                 "overview": metadata["overview"],
                 "cast": metadata["cast"],
                 "rating": metadata["rating"],
-                "year": metadata["year"]
+                "year": metadata["year"],
+                "tmdb_id": metadata.get("tmdb_id")
             })
             return match
 
@@ -192,7 +193,8 @@ def get_tmdb_metadata(movie_title):
         "cast": [],
         "rating": 0,
         "year": "Unknown",
-        "popularity": 0
+        "popularity": 0,
+        "tmdb_id": None
     }
     
     if not api_key:
@@ -210,6 +212,7 @@ def get_tmdb_metadata(movie_title):
             default_meta["rating"] = round(movie.get("vote_average", 0), 1)
             default_meta["year"] = movie.get("release_date", "")[:4] if movie.get("release_date") else ""
             default_meta["popularity"] = movie.get("popularity", 0)
+            default_meta["tmdb_id"] = movie_id
             
             # Fetch credits
             credits_url = f"https://api.themoviedb.org/3/movie/{movie_id}/credits?api_key={api_key}"

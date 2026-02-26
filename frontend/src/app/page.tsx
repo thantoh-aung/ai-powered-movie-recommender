@@ -14,6 +14,7 @@ interface Movie {
   rating?: number;
   year?: string;
   popularity?: number;
+  tmdb_id?: number;
 }
 
 export default function Home() {

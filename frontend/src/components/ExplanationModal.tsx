@@ -8,6 +8,7 @@ interface Movie {
     rating?: number;
     year?: string;
     poster_url: string;
+    tmdb_id?: number;
 }
 
 interface ExplanationModalProps {
@@ -74,10 +75,21 @@ export default function ExplanationModal({ movie, onClose }: ExplanationModalPro
                     )}
                 </div>
 
-                <div className="p-6 border-t border-gray-800 shrink-0">
+                <div className="p-6 border-t border-gray-800 shrink-0 flex gap-4">
+                    {movie.tmdb_id && (
+                        <a
+                            href={`https://vidsrc.to/embed/movie/${movie.tmdb_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 text-center px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30"
+                        >
+                            <svg className="w-5 h-5 fill-current" viewBox="0 0 20 20"><path d="M4 4l12 6-12 6z" /></svg>
+                            Watch Movie
+                        </a>
+                    )}
                     <button
                         onClick={onClose}
-                        className="px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-bold transition-colors w-full"
+                        className="flex-1 px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-bold transition-colors"
                     >
                         Close
                     </button>
