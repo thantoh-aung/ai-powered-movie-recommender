@@ -64,6 +64,12 @@ def populate_dynamic_kb():
                 title = m["title"].replace("'", "\\'") # Escape single quotes for Prolog
                 overview = m.get("overview", "")
                 
+                # Filter out garbage movies or movies without posters
+                if not m.get("poster_path"):
+                    continue
+                if title.lower() in ["the orphans", "orphans"]:
+                    continue
+                
                 # Default age rating 13 if we can't easily parse it
                 min_age = 13
                 if m.get("adult"): min_age = 18
