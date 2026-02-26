@@ -1,6 +1,9 @@
 # Explainable AI Movie Recommender
 
+🌟 **Live Demo:** [https://ai-powered-movie-recommender-theta.vercel.app/](https://ai-powered-movie-recommender-theta.vercel.app/)
+
 A full-stack, AI-powered movie recommendation system that bridges traditional logic programming with modern web architecture. Built with **Prolog** (AI Engine), **Django** (Backend REST API), and **Next.js** (Frontend UI).
+
 
 This system solves the "Black Box" problem of modern Machine Learning by utilizing a transparent, rule-based Prolog logic engine. It not only recommends movies based on dynamic constraints but also generates strictly trace-able English explanations for *why* a movie was chosen.
 
@@ -103,12 +106,6 @@ Because PySWIP requires a native C-library of SWI-Prolog, the backend **must be 
    * **Key:** `NEXT_PUBLIC_API_URL`
    * **Value:** `https://your-render-backend-url.onrender.com`
 5. Deploy!
-
----
-
-## 📸 Screenshots
-
-*(To be added by developer)*
 
 ---
 
