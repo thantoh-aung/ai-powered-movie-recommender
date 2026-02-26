@@ -8,7 +8,10 @@ import concurrent.futures
 prolog = Prolog()
 
 # Correctly form path to the prolog knowledge base
-prolog_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'backend', 'ai_engine', 'recommendation.pl')
+# Handle difference between local Windows development and Docker container
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+prolog_file_path = os.path.join(base_dir, 'ai_engine', 'recommendation.pl')
+
 # Windows paths need forward slashes for Prolog
 normalized_path = prolog_file_path.replace("\\", "/")
 
