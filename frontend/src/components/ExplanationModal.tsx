@@ -78,7 +78,7 @@ export default function ExplanationModal({ movie, onClose }: ExplanationModalPro
                 <div className="p-6 border-t border-gray-800 shrink-0 flex gap-4">
                     {movie.tmdb_id && (
                         <a
-                            href={`https://vidsrc.to/embed/movie/${movie.tmdb_id}`}
+                            href={`https://vidsrc.me/embed/movie?tmdb=${movie.tmdb_id}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex-1 text-center px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30"
