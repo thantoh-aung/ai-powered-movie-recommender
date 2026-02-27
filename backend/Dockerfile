@@ -27,5 +27,5 @@ COPY . /app/
 # Expose port (Render expects 8000 by default but can be configured)
 EXPOSE 8000
 
-# Run gunicorn server
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "movie_recommender.wsgi:application"]
+# Run migrations and start gunicorn server
+CMD bash -c "python manage.py migrate && gunicorn --bind 0.0.0.0:8000 movie_recommender.wsgi:application"
