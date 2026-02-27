@@ -16,10 +16,17 @@ interface ExplanationModalProps {
     onClose: () => void;
 }
 
+import { motion } from 'framer-motion';
+
 export default function ExplanationModal({ movie, onClose }: ExplanationModalProps) {
     return (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-fade-in backdrop-blur-sm">
-            <div className="bg-gray-900 border border-gray-700 rounded-2xl max-w-2xl w-full p-0 shadow-2xl relative animate-scale-up overflow-hidden flex flex-col max-h-[90vh]">
+            <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-gray-900 border border-gray-700 rounded-2xl max-w-2xl w-full p-0 shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]"
+            >
 
                 {/* Header Image Section */}
                 <div className="relative h-48 sm:h-64 w-full shrink-0">
@@ -27,7 +34,7 @@ export default function ExplanationModal({ movie, onClose }: ExplanationModalPro
                     <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div>
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 bg-black/50 p-2 rounded-full text-gray-300 hover:text-white hover:bg-black transition-colors"
+                        className="absolute top-4 right-4 bg-black/50 p-2 rounded-full text-gray-300 hover:text-white hover:bg-black transition-colors z-10"
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
@@ -43,16 +50,59 @@ export default function ExplanationModal({ movie, onClose }: ExplanationModalPro
                 </div>
 
                 {/* Content Section */}
-                <div className="p-6 overflow-y-auto space-y-6">
-                    {/* The Explainable AI Core Part */}
-                    <div className="bg-indigo-900/20 border border-indigo-500/30 rounded-xl p-5">
-                        <div className="flex items-center gap-3 mb-3 text-indigo-400">
+                <div className="p-6 overflow-y-auto space-y-8">
+                    {/* The Explainable AI Core Part - VISUALIZER */}
+                    <div className="mb-2">
+                        <div className="flex items-center gap-3 mb-4 text-indigo-400">
                             <svg className="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-                            <h3 className="font-bold text-lg uppercase tracking-wider">AI Reasoning</h3>
+                            <h3 className="font-bold text-lg uppercase tracking-wider">Prolog XAI Logic Trace</h3>
                         </div>
-                        <p className="text-gray-200 text-lg leading-relaxed font-mono">
-                            {movie.explanation}
-                        </p>
+
+                        {/* Interactive Tree UI */}
+                        <div className="flex flex-col items-center gap-2">
+                            <motion.div
+                                initial={{ y: -20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ delay: 0.1 }}
+                                className="bg-gray-800 border border-gray-600 px-6 py-2 rounded-xl text-gray-300 shadow-md text-sm"
+                            >
+                                User Constraints
+                            </motion.div>
+
+                            <motion.div
+                                initial={{ height: 0 }}
+                                animate={{ height: 24 }}
+                                transition={{ delay: 0.3, duration: 0.3 }}
+                                className="w-0.5 bg-indigo-500/50"
+                            />
+
+                            <motion.div
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{ delay: 0.6 }}
+                                className="bg-indigo-900/30 border border-indigo-500/50 p-4 rounded-xl text-center w-full shadow-[0_0_15px_rgba(79,70,229,0.2)]"
+                            >
+                                <p className="text-gray-200 leading-relaxed font-mono">
+                                    {movie.explanation}
+                                </p>
+                            </motion.div>
+
+                            <motion.div
+                                initial={{ height: 0 }}
+                                animate={{ height: 24 }}
+                                transition={{ delay: 0.8, duration: 0.3 }}
+                                className="w-0.5 bg-green-500/50"
+                            />
+
+                            <motion.div
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ delay: 1.1 }}
+                                className="bg-green-900/30 border border-green-500/50 px-6 py-2 rounded-xl text-green-300 font-bold shadow-md shadow-green-500/10"
+                            >
+                                Match: {movie.title}
+                            </motion.div>
+                        </div>
                     </div>
 
                     {/* Metadata Section */}
@@ -94,7 +144,7 @@ export default function ExplanationModal({ movie, onClose }: ExplanationModalPro
                         Close
                     </button>
                 </div>
-            </div>
+            </motion.div>
         </div>
     );
 }

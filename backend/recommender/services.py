@@ -1,18 +1,23 @@
 import os
-import requests
-import re
-from pyswip import Prolog
-import concurrent.futures
+try:
+    import chromadb
+except Exception as e:
+    print(f"Failed to import chromadb: {e}")
+    chromadb = None
 
-# Initialize Prolog Engine
+try:
+    from sentence_transformers import SentenceTransformer
+except Exception as e:
+    print(f"Failed to import sentence_transformers: {e}")
+    SentenceTransformer = None
+
+from pyswip import Prolog
+from django.conf import settings
+
 prolog = Prolog()
 
-# Correctly form path to the prolog knowledge base
-# Handle difference between local Windows development and Docker container
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 prolog_file_path = os.path.join(base_dir, 'ai_engine', 'recommendation.pl')
-
-# Windows paths need forward slashes for Prolog
 normalized_path = prolog_file_path.replace("\\", "/")
 
 try:
@@ -21,207 +26,149 @@ try:
 except Exception as e:
     print(f"Error loading prolog: {e}")
 
-# Genre mapping from TMDB IDs to our Prolog genres
-TMDB_GENRES = {
-    28: 'action', 12: 'adventure', 16: 'animation', 35: 'comedy', 80: 'crime',
-    99: 'documentary', 18: 'drama', 10751: 'family', 14: 'fantasy', 36: 'history',
-    27: 'horror', 10402: 'musical', 9648: 'mystery', 10749: 'romance', 878: 'sci-fi',
-    10770: 'tv movie', 53: 'thriller', 10752: 'war', 37: 'western'
-}
+embedding_model = None
 
-def infer_mood(overview, genres):
-    # Very rudimentary mood inference based on keywords
-    overview_lower = overview.lower()
-    moods = []
-    
-    if 'dark' in overview_lower or 'murder' in overview_lower or 'crime' in overview_lower: moods.append('dark')
-    if 'funny' in overview_lower or 'hilarious' in overview_lower or 'comedy' in genres: moods.append('funny')
-    if 'mind' in overview_lower or 'twist' in overview_lower or 'complex' in overview_lower: moods.append('mind-bending')
-    if 'action' in genres or 'explosive' in overview_lower: moods.append('action-packed')
-    if 'thrill' in overview_lower or 'suspense' in overview_lower: moods.append('thrilling')
-    if 'love' in overview_lower or 'romance' in genres: moods.append('romantic')
-    if 'family' in genres or 'heartwarming' in overview_lower: moods.append('heartwarming')
-        
-    if not moods:
-        moods = ['thought-provoking', 'tense'] # Default fallback moods
-    return moods
-
-def populate_dynamic_kb():
-    api_key = os.getenv("TMDB_API_KEY")
-    if not api_key:
-        print("No TMDB API key, skipping dynamic population.")
-        return
-        
-    print("Fetching dynamic movies from TMDB...")
-    # Fetch 3 pages of popular movies (~60 movies)
-    for page in [1, 2, 3]:
-        url = f"https://api.themoviedb.org/3/movie/popular?api_key={api_key}&language=en-US&page={page}"
+def get_embedding_model():
+    global embedding_model
+    if SentenceTransformer is None:
+        return None
+    if embedding_model is None:
         try:
-            response = requests.get(url).json()
-            movies = response.get("results", [])
-            for m in movies:
-                movie_id = m["id"]
-                title = m["title"].replace("'", "\\'") # Escape single quotes for Prolog
-                overview = m.get("overview", "")
-                
-                # Filter out garbage movies or movies without posters
-                if not m.get("poster_path"):
-                    continue
-                if title.lower() in ["the orphans", "orphans"]:
-                    continue
-                
-                # Default age rating 13 if we can't easily parse it
-                min_age = 13
-                if m.get("adult"): min_age = 18
-                
-                release_year = m.get("release_date", "2000")[:4] if m.get("release_date") else 2000
-                popularity = int(m.get("popularity", 50))
-                
-                genre_ids = m.get("genre_ids", [])
-                genres = [TMDB_GENRES.get(gid, 'drama') for gid in genre_ids if TMDB_GENRES.get(gid)]
-                if not genres: genres = ['drama']
-                
-                moods = infer_mood(overview, genres)
-                
-                # Format lists for Prolog: [action, 'sci-fi'] etc
-                genres_str = "[" + ",".join([f"'{g}'" for g in genres]) + "]"
-                moods_str = "[" + ",".join([f"'{m}'" for m in moods]) + "]"
-                
-                # Check if it already exists to avoid duplicates during hot reloads
-                # Using a safe query that doesn't blow up if PySWIP syntax is weird
-                check_query = f"movie({movie_id}, _, _, _, _, _, _)"
-                try:
-                    exists = list(prolog.query(check_query))
-                    if not exists:
-                        # Assert the new fact into the Prolog engine
-                        fact_str = f"movie({movie_id}, '{title}', {genres_str}, {moods_str}, {min_age}, {release_year}, {popularity})"
-                        prolog.assertz(fact_str)
-                except Exception as inner_e:
-                    print(f"Error checking/asserting movie {movie_id}: {inner_e}")
-                    
+            embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
         except Exception as e:
-            print(f"Error dynamically loading TMDB movies: {e}")
-            
-    print("Finished dynamic KB population.")
+            print(f"Exception initializing sentence_transformers: {e}")
+            return None
+    return embedding_model
 
-# Call the population function on startup
-populate_dynamic_kb()
-
-def get_recommendations(pref_genre, pref_mood, user_age, search_query=None):
-    query = f"recommend_movie('{pref_genre}', '{pref_mood}', {user_age}, Title, Explanation, Popularity)"
+def get_chroma_collection():
+    if chromadb is None:
+        return None
     try:
-        results = list(prolog.query(query))
-        
-        # Fallback: if strict genre/mood combination yields 0 results, 
-        # try again with 'any' mood to broaden the search and give the user options.
-        if not results and pref_mood != 'any':
-            fallback_query = f"recommend_movie('{pref_genre}', 'any', {user_age}, Title, Explanation, Popularity)"
-            results = list(prolog.query(fallback_query))
-            
-        # Fallback 2: if still empty, try 'any' genre and 'any' mood
-        if not results and (pref_genre != 'any' or pref_mood != 'any'):
-             fallback_query = f"recommend_movie('any', 'any', {user_age}, Title, Explanation, Popularity)"
-             results = list(prolog.query(fallback_query))
+        client = chromadb.PersistentClient(path=settings.CHROMA_DB_DIR)
+        return client.get_or_create_collection(name="movies")
+    except Exception as e:
+        print(f"Exception initializing chromadb: {e}")
+        return None
 
-        # 1. Collect unique matches from Prolog
+def load_prolog_kb():
+    from .models import Movie
+    print("Loading KB from local DB...")
+    # Retract all dynamic movie facts
+    list(prolog.query("retractall(movie(_, _, _, _, _, _, _))"))
+    
+    movies = Movie.objects.all()
+    count = 0
+    for m in movies:
+        genres_str = "[" + ",".join([f"'{g}'" for g in m.genres]) + "]"
+        moods_str = "[" + ",".join([f"'{mood}'" for mood in m.moods]) + "]"
+        title = m.title.replace("'", "\\'")
+        try:
+            fact_str = f"movie({m.tmdb_id}, '{title}', {genres_str}, {moods_str}, {m.min_age}, {m.release_year}, {int(m.popularity)})"
+            prolog.assertz(fact_str)
+            count += 1
+        except Exception as e:
+             pass
+    print(f"Loaded {count} movies into Prolog KB.")
+
+def get_recommendations(pref_genre, pref_mood, user_age, search_query="", user_id=None):
+    from .models import Movie
+    chroma_collection = get_chroma_collection()
+    pool_ids = []
+    
+    if search_query and search_query.strip() and chroma_collection:
+        model = get_embedding_model()
+        if model:
+            query_embedding = model.encode(search_query).tolist()
+            results = chroma_collection.query(
+                query_embeddings=[query_embedding],
+                n_results=100
+            )
+            if results and results.get("ids") and len(results["ids"]) > 0:
+                pool_ids = [int(x) for x in results["ids"][0]]
+            
+    # Always include collaborative filtering if user_id is provided
+    results_raw = []
+    
+    # 1. Content-based / Collaborative search
+    if user_id:
+        try:
+             results_raw.extend(list(prolog.query(f"recommend_similar_to_liked({user_id}, {user_age}, Title, Explanation, Popularity)")))
+        except: pass
+        
+    # 2. Constraints search
+    if pool_ids:
+        pool_str = "[" + ",".join([str(pid) for pid in pool_ids]) + "]"
+        query = f"recommend_movie_in_pool('{pref_genre}', '{pref_mood}', {user_age}, {pool_str}, Title, Explanation, Popularity)"
+    else:
+        query = f"recommend_movie('{pref_genre}', '{pref_mood}', {user_age}, Title, Explanation, Popularity)"
+        
+    try:
+        results_raw.extend(list(prolog.query(query)))
+        
+        # Fallbacks if still empty
+        if not results_raw and pref_mood != 'any':
+            if pool_ids:
+                fallback_query = f"recommend_movie_in_pool('{pref_genre}', 'any', {user_age}, {pool_str}, Title, Explanation, Popularity)"
+            else:
+                fallback_query = f"recommend_movie('{pref_genre}', 'any', {user_age}, Title, Explanation, Popularity)"
+            results_raw.extend(list(prolog.query(fallback_query)))
+            
+        if not results_raw and pref_genre != 'any':
+            if pool_ids:
+                fallback_query = f"recommend_movie_in_pool('any', '{pref_mood}', {user_age}, {pool_str}, Title, Explanation, Popularity)"
+            else:
+                fallback_query = f"recommend_movie('any', '{pref_mood}', {user_age}, Title, Explanation, Popularity)"
+            results_raw.extend(list(prolog.query(fallback_query)))
+
+        if not results_raw:
+            if pool_ids:
+                fallback_query = f"recommend_movie_in_pool('any', 'any', {user_age}, {pool_str}, Title, Explanation, Popularity)"
+            else:
+                fallback_query = f"recommend_movie('any', 'any', {user_age}, Title, Explanation, Popularity)"
+            results_raw.extend(list(prolog.query(fallback_query)))
+
         unique_matches = {}
-        for res in results:
-            title = res["Title"].decode('utf-8') if isinstance(res["Title"], bytes) else str(res["Title"])
-            explanation = res["Explanation"].decode('utf-8') if isinstance(res["Explanation"], bytes) else str(res["Explanation"])
-            popularity = int(res["Popularity"]) if "Popularity" in res else 50
+        for res in results_raw:
+            title_raw = res.get("Title")
+            if not title_raw: continue
+            title = title_raw.decode('utf-8') if isinstance(title_raw, bytes) else str(title_raw)
+            explanation_raw = res.get("Explanation", "")
+            explanation = explanation_raw.decode('utf-8') if isinstance(explanation_raw, bytes) else str(explanation_raw)
+            popularity = int(res.get("Popularity", 50))
+            
+            # Boost popularity heavily if it's a collaborative match so they appear first!
+            if "because you liked" in explanation:
+                popularity += 10000
             
             if title not in unique_matches:
-                unique_matches[title] = {
-                    "title": title,
-                    "explanation": explanation,
-                    "popularity": popularity
-                }
+                unique_matches[title] = {"title": title, "explanation": explanation, "popularity": popularity}
+                
+        import random
+        match_list = list(unique_matches.values())
+        random.shuffle(match_list) # Shuffle first to break ties randomly
+        sorted_matches = sorted(match_list, key=lambda x: x['popularity'], reverse=True)[:150]
         
-        # 2. Sort by popularity and get top 50
-        sorted_matches = sorted(list(unique_matches.values()), key=lambda x: x['popularity'], reverse=True)
-        top_matches = sorted_matches[:50]
+        # Fetch rich data from DB 
+        titles = [m['title'] for m in sorted_matches]
+        movies_in_db = Movie.objects.filter(title__in=titles)
+        movie_lookup = { m.title: m for m in movies_in_db }
         
-        # 3. Fetch rich TMDB metadata CONCURRENTLY
-        fetched_movies = []
-        
-        def fetch_and_update(match):
-            metadata = get_tmdb_metadata(match["title"])
-            match.update({
-                "poster_url": metadata["poster_url"],
-                "overview": metadata["overview"],
-                "cast": metadata["cast"],
-                "rating": metadata["rating"],
-                "year": metadata["year"],
-                "tmdb_id": metadata.get("tmdb_id")
-            })
-            return match
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-            fetched_movies = list(executor.map(fetch_and_update, top_matches))
-            
-        # 4. Filter by search query AFTER fetching metadata to allow searching by actor/keyword
         final_movies = []
-        if search_query:
-            sq = search_query.lower()
-            for movie in fetched_movies:
-                # Check title
-                if sq in movie["title"].lower():
-                    final_movies.append(movie)
-                    continue
-                # Check overview
-                if sq in movie.get("overview", "").lower():
-                    final_movies.append(movie)
-                    continue
-                # Check cast
-                cast_str = " ".join(movie.get("cast", [])).lower()
-                if sq in cast_str:
-                    final_movies.append(movie)
-                    continue
-        else:
-            final_movies = fetched_movies
-            
+        for m in sorted_matches:
+            db_m = movie_lookup.get(m['title'])
+            if db_m:
+                final_movies.append({
+                    "title": db_m.title,
+                    "explanation": m["explanation"],
+                    "popularity": db_m.popularity,
+                    "poster_url": db_m.poster_url,
+                    "overview": db_m.overview,
+                    "cast": db_m.cast,
+                    "rating": db_m.rating,
+                    "year": db_m.release_year,
+                    "tmdb_id": db_m.tmdb_id
+                })
         return final_movies
     except Exception as e:
         print(f"Error executing Prolog query: {e}")
         return []
-
-def get_tmdb_metadata(movie_title):
-    api_key = os.getenv("TMDB_API_KEY")
-    default_meta = {
-        "poster_url": "https://via.placeholder.com/500x750?text=No+Poster",
-        "overview": "No description available.",
-        "cast": [],
-        "rating": 0,
-        "year": "Unknown",
-        "popularity": 0,
-        "tmdb_id": None
-    }
-    
-    if not api_key:
-        return default_meta
-    
-    url = f"https://api.themoviedb.org/3/search/movie?api_key={api_key}&query={movie_title}"
-    try:
-        response = requests.get(url).json()
-        if response.get("results") and len(response["results"]) > 0:
-            movie = response["results"][0]
-            movie_id = movie["id"]
-            
-            default_meta["poster_url"] = f"https://image.tmdb.org/t/p/w500{movie['poster_path']}" if movie.get('poster_path') else default_meta["poster_url"]
-            default_meta["overview"] = movie.get("overview", "")
-            default_meta["rating"] = round(movie.get("vote_average", 0), 1)
-            default_meta["year"] = movie.get("release_date", "")[:4] if movie.get("release_date") else ""
-            default_meta["popularity"] = movie.get("popularity", 0)
-            default_meta["tmdb_id"] = movie_id
-            
-            # Fetch credits
-            credits_url = f"https://api.themoviedb.org/3/movie/{movie_id}/credits?api_key={api_key}"
-            credits_resp = requests.get(credits_url).json()
-            if credits_resp.get("cast"):
-                # Get top 3 actors
-                default_meta["cast"] = [actor["name"] for actor in credits_resp["cast"][:3]]
-                
-    except Exception as e:
-        print(f"TMDB Fetch Error: {e}")
-        
-    return default_meta
