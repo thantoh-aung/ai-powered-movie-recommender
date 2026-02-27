@@ -37,30 +37,34 @@ def infer_mood(overview, genres):
 
 @shared_task
 def fetch_popular_movies():
+    return sync_movies_with_tmdb(max_pages=10)
+
+def sync_movies_with_tmdb(max_pages=10):
     api_key = os.getenv("TMDB_API_KEY")
     if not api_key:
         print("No TMDB API key, skipping.")
-        return
+        return 0
 
     # Initialize chromadb client and model
     collection = None
     model = None
     if chromadb is not None and SentenceTransformer is not None:
         try:
+            from django.conf import settings
             chroma_client = chromadb.PersistentClient(path=settings.CHROMA_DB_DIR)
             collection = chroma_client.get_or_create_collection(name="movies")
-            model = SentenceTransformer('all-MiniLM-L6-v2')
+            from sentence_transformers import SentenceTransformer as ST
+            model = ST('all-MiniLM-L6-v2')
         except Exception as e:
             print(f"Error initializing Chroma/SentenceTransformer: {e}")
 
-    print("Fetching dynamic movies from TMDB via Celery...")
+    print(f"Syncing {max_pages} pages of movies from TMDB...")
     
     new_movies_processed = 0
-    # Fetch top 10 pages (~200 movies)
-    for page in range(1, 11):
+    for page in range(1, max_pages + 1):
         url = f"https://api.themoviedb.org/3/movie/popular?api_key={api_key}&language=en-US&page={page}"
         try:
-            response = requests.get(url).json()
+            response = requests.get(url, timeout=10).json()
             movies_data = response.get("results", [])
             for m in movies_data:
                 movie_id = m["id"]
@@ -72,7 +76,7 @@ def fetch_popular_movies():
                 
                 # Fetch credits for this movie to get cast
                 credits_url = f"https://api.themoviedb.org/3/movie/{movie_id}/credits?api_key={api_key}"
-                credits_resp = requests.get(credits_url).json()
+                credits_resp = requests.get(credits_url, timeout=10).json()
                 cast = [actor["name"] for actor in credits_resp.get("cast", [])[:5]]
 
                 # Improved age inference 
@@ -129,6 +133,7 @@ def fetch_popular_movies():
                 new_movies_processed += 1
                 
         except Exception as e:
-            print(f"Error dynamically loading TMDB movies page {page}: {e}")
+            print(f"Error loading TMDB movies page {page}: {e}")
 
     print(f"Finished processing {new_movies_processed} movies.")
+    return new_movies_processed
