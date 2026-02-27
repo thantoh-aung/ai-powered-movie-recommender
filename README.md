@@ -1,20 +1,17 @@
-# Explainable AI Movie Recommender
+# Explainable Hybrid AI Movie Recommender
 
 🌟 **Live Demo:** [https://ai-powered-movie-recommender-theta.vercel.app/](https://ai-powered-movie-recommender-theta.vercel.app/)
 
-A full-stack, AI-powered movie recommendation system that bridges traditional logic programming with modern web architecture. Built with **Prolog** (AI Engine), **Django** (Backend REST API), and **Next.js** (Frontend UI).
-
-
-This system solves the "Black Box" problem of modern Machine Learning by utilizing a transparent, rule-based Prolog logic engine. It not only recommends movies based on dynamic constraints but also generates strictly trace-able English explanations for *why* a movie was chosen.
+A full-stack, **Neuro-Symbolic AI** movie recommendation system that bridges traditional logic programming with modern transformer-based neural networks. Built with **Prolog** (Reasoning Engine), **Sentence-Transformers** (Semantic Search), and **Next.js** (Frontend).
 
 ## 🚀 Key Features
 
-*   **Prolog Expert System:** Uses a native `swi-prolog` knowledge base (`recommendation.pl`) to evaluate complex user preferences against movie data using logical predicates.
-*   **Dynamic Knowledge Base:** The Python backend dynamically fetches the top ~60 popular movies from the TMDB API and securely *asserts* them into the running Prolog instance in real-time.
-*   **Deep Search Integration:** Search queries filter against movie titles, plot overviews, and top cast members *after* Prolog determines the optimal pool.
-*   **Explainable AI (XAI):** A custom React modal displays the generated natural language explanation, proving the logic trace used to select the film.
-*   **High Performance:** Implements multi-threaded concurrent API calls (`concurrent.futures`) to drastically reduce TMDB metadata loading times from ~45 seconds down to ~2 seconds.
-*   **Modern UI/UX:** A stunning dark-mode Next.js + TailwindCSS interface with glossy gradients, responsive grids, and rich movie metadata fetching.
+*   **Neuro-Symbolic Hybrid Architecture:** Combines the strict logical reliability of **Prolog** with the creative semantic understanding of **Transformer models** (`all-MiniLM-L6-v2`).
+*   **Swift Mode (Tinder-style):** A high-performance discovery interface using `framer-motion` where users can swipe to like or pass on movies, teaching the AI in real-time.
+*   **Explainable AI (XAI):** Generates traceable, natural language explanations for every recommendation, proving why a film fits your profile.
+*   **Backend Age Enforcement:** Uses a secure database-level age filter. Logged-in users have their age verified by the server, ensuring minors can never bypass content restrictions by simply moving a UI slider.
+*   **Real-time Learning:** As users swipe movies in Swift Mode, the system dynamically asserts new facts into the Prolog Knowledge Base, refining recommendations instantly.
+*   **Semantic Search:** Integrated **ChromaDB** vector database allows for "vibe-based" searches (e.g., searching for "lonely space exploration" finds movies like *Interstellar* even if the words aren't in the title).
 
 ---
 
@@ -22,16 +19,26 @@ This system solves the "Black Box" problem of modern Machine Learning by utilizi
 
 **Frontend:**
 *   [Next.js 14](https://nextjs.org/) (React Framework)
+*   [Framer Motion](https://www.framer.com/motion/) (Animations & Gestures)
 *   [Tailwind CSS](https://tailwindcss.com/) (Styling)
-*   [Lucide React](https://lucide.dev/) (Icons)
 
 **Backend:**
 *   [Django 5](https://www.djangoproject.com/) (REST Framework / API Layer)
 *   [PySWIP](https://pypi.org/project/pyswip/) (Python-to-Prolog Bridge)
-*   [TMDB API](https://developer.themoviedb.org/docs) (Rich Movie Metadata)
+*   [ChromaDB](https://www.trychroma.com/) (Vector Database)
+*   [Sentence-Transformers](https://sbert.net/) (`all-MiniLM-L6-v2` model)
 
 **AI Engine:**
-*   [SWI-Prolog](https://www.swi-prolog.org/) (Rule-based Logic & Knowledge Base)
+*   [SWI-Prolog](https://www.swi-prolog.org/) (Logical Reasoning & Knowledge Base)
+
+---
+
+## 🧠 Architecture Flow
+
+1.  **Semantic Retrieval:** ChromaDB finds the top 100 movies matching the "meaning" of the user's search query.
+2.  **Logical Filtering:** The **Prolog Engine** intercepts these results and applies hard rules (Age check, Genre matching, Mood constraints).
+3.  **Collaborative Feedback:** Prolog prioritizes movies similar to the user's "Liked" history.
+4.  **Explanation Generation:** The engine constructs a human-readable bridge between the user's input and the selected result.
 
 ---
 
@@ -55,21 +62,25 @@ This system solves the "Black Box" problem of modern Machine Learning by utilizi
    # macOS/Linux
    source venv/bin/activate
    ```
-3. Install Python dependencies:
+3. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
 4. Configure TMDB:
    * Create a `.env` file in the `/backend` directory.
    * Add your API key: `TMDB_API_KEY=your_api_key_here`
-5. Start the Django server:
+5. Run Migrations:
+   ```bash
+   python manage.py makemigrations
+   python manage.py migrate
+   ```
+6. Start the server:
    ```bash
    python manage.py runserver
    ```
-   *The backend will boot up on `http://127.0.0.1:8000`.*
 
 ### 2. Frontend (Next.js)
-1. Open a new terminal and navigate to the frontend directory:
+1. Navigate to the frontend directory:
    ```bash
    cd frontend
    ```
@@ -87,25 +98,14 @@ This system solves the "Black Box" problem of modern Machine Learning by utilizi
 
 ## 🌍 Production Deployment
 
-This repository is optimized for modern cloud hosting, separating the frontend and backend deployments.
+### Backend (Railway / Render)
+**Recommended:** Use a persistent server like [Railway.app](https://railway.app) to avoid cold starts when loading the AI models.
+*   Ensure SWI-Prolog is installed in the environment (use the provided `Dockerfile`).
 
-### Deploying the Backend (Render)
-Because PySWIP requires a native C-library of SWI-Prolog, the backend **must be deployed as a Docker Web Service**, not a standard Python template.
-1. Go to [Render.com](https://render.com) and create a **New Web Service**.
-2. Connect this GitHub repository.
-3. For "Environment", select **Docker**.
-4. Set the "Root Directory" to `backend`.
-5. Add your `TMDB_API_KEY` under Environment Variables.
-6. Deploy! Render will use the included `/backend/Dockerfile` to automatically install Prolog, Python, and boot the `gunicorn` server.
-
-### Deploying the Frontend (Vercel)
-1. Go to [Vercel.com](https://vercel.com) and create a **New Project**.
-2. Connect this GitHub repository.
-3. Set the "Root Directory" to `frontend`.
-4. Add the following Environment Variable so the Next.js app knows where your Render API lives:
-   * **Key:** `NEXT_PUBLIC_API_URL`
-   * **Value:** `https://your-render-backend-url.onrender.com`
-5. Deploy!
+### Frontend (Vercel)
+*   Connect the Git repository to Vercel.
+*   Set the root directory to `frontend`.
+*    Add `NEXT_PUBLIC_API_URL` environment variable pointing to your backend.
 
 ---
 

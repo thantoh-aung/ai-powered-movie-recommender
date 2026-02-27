@@ -6,10 +6,12 @@ class RecommenderConfig(AppConfig):
     name = 'recommender'
 
     def ready(self):
-        # Prevent loading KB during migrations
-        if 'runserver' in sys.argv or any('gunicorn' in arg for arg in sys.argv):
-            try:
-                from .services import load_prolog_kb
-                load_prolog_kb()
-            except Exception as e:
-                print(f"Failed to load Prolog KB from DB on startup: {e}")
+        # Prevent loading KB during migrations or collectstatic
+        if any(cmd in sys.argv for cmd in ['makemigrations', 'migrate', 'collectstatic', 'test']):
+            return
+            
+        try:
+            from .services import load_prolog_kb
+            load_prolog_kb()
+        except Exception as e:
+            print(f"Failed to auto-load Prolog KB: {e}")

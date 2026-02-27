@@ -1,21 +1,10 @@
 import os
-try:
-    import chromadb
-except Exception as e:
-    print(f"Failed to import chromadb: {e}")
-    chromadb = None
-
-try:
-    from sentence_transformers import SentenceTransformer
-except Exception as e:
-    print(f"Failed to import sentence_transformers: {e}")
-    SentenceTransformer = None
-
 from pyswip import Prolog
 from django.conf import settings
 
 prolog = Prolog()
 
+# Resolve path for Prolog file
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 prolog_file_path = os.path.join(base_dir, 'ai_engine', 'recommendation.pl')
 normalized_path = prolog_file_path.replace("\\", "/")
@@ -30,10 +19,9 @@ embedding_model = None
 
 def get_embedding_model():
     global embedding_model
-    if SentenceTransformer is None:
-        return None
     if embedding_model is None:
         try:
+            from sentence_transformers import SentenceTransformer
             embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
         except Exception as e:
             print(f"Exception initializing sentence_transformers: {e}")
@@ -41,9 +29,8 @@ def get_embedding_model():
     return embedding_model
 
 def get_chroma_collection():
-    if chromadb is None:
-        return None
     try:
+        import chromadb
         client = chromadb.PersistentClient(path=settings.CHROMA_DB_DIR)
         return client.get_or_create_collection(name="movies")
     except Exception as e:
@@ -52,11 +39,17 @@ def get_chroma_collection():
 
 def load_prolog_kb():
     from .models import Movie
+    # Only load if not already loaded (check for one movie fact)
+    try:
+        check = list(prolog.query("movie(_, _, _, _, _, _, _)"))
+        if check:
+            print("Prolog KB already contains data. Skipping reload.")
+            return
+    except:
+        pass
+
     print("Loading KB from local DB...")
-    # Retract all dynamic movie facts
-    list(prolog.query("retractall(movie(_, _, _, _, _, _, _))"))
-    
-    movies = Movie.objects.all()
+    movies = Movie.objects.all().only('tmdb_id', 'title', 'genres', 'moods', 'min_age', 'release_year', 'popularity')
     count = 0
     for m in movies:
         genres_str = "[" + ",".join([f"'{g}'" for g in m.genres]) + "]"
@@ -66,7 +59,7 @@ def load_prolog_kb():
             fact_str = f"movie({m.tmdb_id}, '{title}', {genres_str}, {moods_str}, {m.min_age}, {m.release_year}, {int(m.popularity)})"
             prolog.assertz(fact_str)
             count += 1
-        except Exception as e:
+        except:
              pass
     print(f"Loaded {count} movies into Prolog KB.")
 
