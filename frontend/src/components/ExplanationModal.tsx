@@ -25,7 +25,7 @@ export default function ExplanationModal({ movie, onClose }: ExplanationModalPro
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-gray-900 border border-gray-700 rounded-2xl max-w-2xl w-full p-0 shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]"
+                className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl max-w-2xl w-full p-0 shadow-[0_8px_32px_rgba(0,0,0,0.5)] relative overflow-hidden flex flex-col max-h-[90vh]"
             >
 
                 {/* Header Image Section */}
@@ -64,7 +64,7 @@ export default function ExplanationModal({ movie, onClose }: ExplanationModalPro
                                 initial={{ y: -20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
                                 transition={{ delay: 0.1 }}
-                                className="bg-gray-800 border border-gray-600 px-6 py-2 rounded-xl text-gray-300 shadow-md text-sm"
+                                className="bg-white/5 backdrop-blur-md border border-white/10 px-6 py-2 rounded-xl text-[#E5E7EB] shadow-md text-sm"
                             >
                                 User Constraints
                             </motion.div>
@@ -80,9 +80,9 @@ export default function ExplanationModal({ movie, onClose }: ExplanationModalPro
                                 initial={{ scale: 0.8, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 transition={{ delay: 0.6 }}
-                                className="bg-indigo-900/30 border border-indigo-500/50 p-4 rounded-xl text-center w-full shadow-[0_0_15px_rgba(79,70,229,0.2)]"
+                                className="bg-indigo-500/10 backdrop-blur-md border border-indigo-500/20 p-4 rounded-xl text-center w-full shadow-[0_0_15px_rgba(79,70,229,0.15)]"
                             >
-                                <p className="text-gray-200 leading-relaxed font-mono">
+                                <p className="text-[#E5E7EB] leading-relaxed font-mono">
                                     {movie.explanation}
                                 </p>
                             </motion.div>
@@ -98,7 +98,7 @@ export default function ExplanationModal({ movie, onClose }: ExplanationModalPro
                                 initial={{ y: 20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
                                 transition={{ delay: 1.1 }}
-                                className="bg-green-900/30 border border-green-500/50 px-6 py-2 rounded-xl text-green-300 font-bold shadow-md shadow-green-500/10"
+                                className="bg-emerald-500/10 backdrop-blur-md border border-emerald-500/20 px-6 py-2 rounded-xl text-emerald-300 font-bold shadow-md"
                             >
                                 Match: {movie.title}
                             </motion.div>
@@ -116,7 +116,7 @@ export default function ExplanationModal({ movie, onClose }: ExplanationModalPro
                             <h3 className="text-gray-400 font-bold uppercase text-sm mb-2 tracking-wider">Starring</h3>
                             <div className="flex flex-wrap gap-2">
                                 {movie.cast.map((actor, idx) => (
-                                    <span key={idx} className="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-sm font-medium border border-gray-700">
+                                    <span key={idx} className="bg-white/5 backdrop-blur-md text-[#E5E7EB] px-3 py-1 rounded-full text-sm font-medium border border-white/10">
                                         {actor}
                                     </span>
                                 ))}
@@ -125,13 +125,13 @@ export default function ExplanationModal({ movie, onClose }: ExplanationModalPro
                     )}
                 </div>
 
-                <div className="p-6 border-t border-gray-800 shrink-0 flex gap-4">
+                <div className="p-6 border-t border-white/10 shrink-0 flex gap-4">
                     {movie.tmdb_id && (
                         <a
                             href={`https://vidsrc.me/embed/movie?tmdb=${movie.tmdb_id}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 text-center px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30"
+                            className="flex-1 text-center px-8 py-3 bg-gradient-to-br from-indigo-500 to-cyan-400 hover:opacity-90 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(99,102,241,0.39)]"
                         >
                             <svg className="w-5 h-5 fill-current" viewBox="0 0 20 20"><path d="M4 4l12 6-12 6z" /></svg>
                             Watch Movie
@@ -139,7 +139,7 @@ export default function ExplanationModal({ movie, onClose }: ExplanationModalPro
                     )}
                     <button
                         onClick={onClose}
-                        className="flex-1 px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-bold transition-colors"
+                        className="flex-1 px-8 py-3 bg-white/10 backdrop-blur-md hover:bg-white/20 border border-white/15 text-[#E5E7EB] rounded-xl font-bold transition-all"
                     >
                         Close
                     </button>

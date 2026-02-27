@@ -151,7 +151,7 @@ export default function Home() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search for a movie, actor, or keyword..."
-              className="w-full bg-gray-900 border-2 border-gray-700 text-white rounded-full py-4 pl-12 pr-32 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-lg shadow-xl transition-all"
+              className="w-full bg-white/5 backdrop-blur-md border border-white/10 text-[#E5E7EB] rounded-full py-4 pl-12 pr-32 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-lg shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-all placeholder:text-[#6B7280]"
             />
             <button
               type="submit"
@@ -163,8 +163,8 @@ export default function Home() {
 
           {movies.length > 0 && (
             <div className="mt-8 flex justify-center">
-              <div className="bg-gray-900 border border-gray-700 rounded-full p-1 flex shadow-lg">
-                <button onClick={() => setIsSwipeMode(false)} className={`px-6 py-2 rounded-full font-bold transition-colors ${!isSwipeMode ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'}`}>Grid View</button>
+              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-full p-1 flex shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+                <button onClick={() => setIsSwipeMode(false)} className={`px-6 py-2 rounded-full font-bold transition-colors ${!isSwipeMode ? 'bg-indigo-600 text-white' : 'text-[#9CA3AF] hover:text-white'}`}>Grid View</button>
                 <button onClick={() => setIsSwipeMode(true)} className={`px-6 py-2 rounded-full font-bold transition-colors ${isSwipeMode ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'}`}>Swipe Mode</button>
               </div>
             </div>
@@ -191,7 +191,7 @@ export default function Home() {
           <div className="lg:w-2/3">
             {movies.length > 0 ? (
               <div>
-                <h2 className="text-3xl font-bold mb-8 border-b border-gray-800 pb-4 text-white">
+                <h2 className="text-3xl font-bold mb-8 border-b border-white/10 pb-4 text-[#E5E7EB]">
                   {isSwipeMode ? 'Discover Movies' : 'Top Matches for You'}
                 </h2>
 
@@ -203,7 +203,7 @@ export default function Home() {
                     onExplain={setSelectedMovie}
                   />
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                     {movies.map(movie => (
                       <MovieCard
                         key={movie.title}
@@ -216,9 +216,9 @@ export default function Home() {
               </div>
             ) : (
               !isLoading && !error && (
-                <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-800 rounded-2xl p-8 text-center bg-gray-900/50">
-                  <svg className="w-20 h-20 mb-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg>
-                  <p className="text-2xl font-semibold mb-2">No Recommendations Yet</p>
+                <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-[#9CA3AF] border-2 border-dashed border-white/10 rounded-[20px] p-8 text-center bg-white/5 backdrop-blur-md shadow-lg">
+                  <svg className="w-20 h-20 mb-6 text-[#9CA3AF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg>
+                  <p className="text-2xl font-semibold mb-2 text-[#E5E7EB]">No Recommendations Yet</p>
                   <p className="text-lg">Tweak your preferences and ask the AI Engine.</p>
                 </div>
               )

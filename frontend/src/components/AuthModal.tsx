@@ -58,7 +58,7 @@ export default function AuthModal({ onClose, onLoginSuccess }: AuthModalProps) {
 
     return (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-            <div className="bg-gray-900 border border-gray-700 p-8 rounded-2xl w-full max-w-md relative shadow-2xl">
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 p-8 rounded-2xl w-full max-w-md relative shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
@@ -84,7 +84,7 @@ export default function AuthModal({ onClose, onLoginSuccess }: AuthModalProps) {
                             required
                             value={username ?? ''}
                             onChange={(e) => setUsername(e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="w-full bg-white/5 border border-white/10 text-[#E5E7EB] rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none placeholder:text-[#6B7280]"
                             placeholder="johndoe"
                         />
                     </div>
@@ -95,7 +95,7 @@ export default function AuthModal({ onClose, onLoginSuccess }: AuthModalProps) {
                             required
                             value={password ?? ''}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="w-full bg-white/5 border border-white/10 text-[#E5E7EB] rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none placeholder:text-[#6B7280]"
                             placeholder="••••••••"
                         />
                     </div>
@@ -110,7 +110,7 @@ export default function AuthModal({ onClose, onLoginSuccess }: AuthModalProps) {
                                 max="120"
                                 value={age}
                                 onChange={(e) => setAge(e.target.value === '' ? '' : parseInt(e.target.value))}
-                                className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                className="w-full bg-white/5 border border-white/10 text-[#E5E7EB] rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none placeholder:text-[#6B7280]"
                                 placeholder="18"
                             />
                         </div>
@@ -119,7 +119,7 @@ export default function AuthModal({ onClose, onLoginSuccess }: AuthModalProps) {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-colors mt-6"
+                        className="w-full py-3 bg-gradient-to-br from-indigo-500 to-cyan-400 hover:opacity-90 text-[#E5E7EB] font-bold rounded-xl transition-all shadow-[0_4px_14px_rgba(99,102,241,0.39)] mt-6"
                     >
                         {loading ? 'Processing...' : (isLogin ? 'Login' : 'Register')}
                     </button>
@@ -129,7 +129,7 @@ export default function AuthModal({ onClose, onLoginSuccess }: AuthModalProps) {
                     <button
                         type="button"
                         onClick={() => setIsLogin(!isLogin)}
-                        className="text-gray-400 hover:text-indigo-400 text-sm transition-colors"
+                        className="text-[#9CA3AF] hover:text-[#E5E7EB] text-sm transition-colors"
                     >
                         {isLogin ? "Don't have an account? Register" : "Already have an account? Login"}
                     </button>

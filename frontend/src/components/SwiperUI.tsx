@@ -40,9 +40,9 @@ export default function SwiperUI({ movies, onLike, onDislike, onExplain }: any) 
 
     if (currentIndex >= movies.length) {
         return (
-            <div className="h-96 flex flex-col items-center justify-center text-gray-400 bg-gray-800/50 rounded-2xl border border-gray-700">
-                <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M5 13l4 4L19 7" /></svg>
-                <p className="text-xl font-bold">You've reached the end!</p>
+            <div className="h-96 flex flex-col items-center justify-center text-[#9CA3AF] bg-white/5 backdrop-blur-md rounded-[20px] border border-white/10 shadow-lg">
+                <svg className="w-16 h-16 mb-4 text-[#9CA3AF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M5 13l4 4L19 7" /></svg>
+                <p className="text-xl font-bold text-[#E5E7EB]">You've reached the end!</p>
                 <p>Tweak your preferences for more movies.</p>
             </div>
         );
@@ -76,7 +76,7 @@ export default function SwiperUI({ movies, onLike, onDislike, onExplain }: any) 
                     drag="x"
                     dragConstraints={{ left: 0, right: 0 }}
                     onDragEnd={handleDragEnd}
-                    className="absolute inset-0 bg-gray-900 border border-gray-700 rounded-3xl overflow-hidden shadow-2xl cursor-grab active:cursor-grabbing flex flex-col"
+                    className="absolute inset-0 bg-white/5 backdrop-blur-md border border-white/10 rounded-[20px] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.5)] cursor-grab active:cursor-grabbing flex flex-col"
                 >
                     <div className="relative flex-grow pointer-events-none">
                         <img
@@ -84,31 +84,31 @@ export default function SwiperUI({ movies, onLike, onDislike, onExplain }: any) 
                             alt={currentMovie.title}
                             className="absolute inset-0 w-full h-full object-cover"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent"></div>
+                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#0B0F14] to-transparent"></div>
                         <div className="absolute bottom-6 left-6 right-6">
-                            <h2 className="text-3xl font-extrabold text-white leading-tight drop-shadow-md">{currentMovie.title}</h2>
-                            <p className="text-gray-300 mt-2 line-clamp-2">{currentMovie.overview}</p>
+                            <h2 className="text-3xl font-extrabold text-[#E5E7EB] leading-tight drop-shadow-md">{currentMovie.title}</h2>
+                            <p className="text-[#9CA3AF] mt-2 line-clamp-2">{currentMovie.overview}</p>
                         </div>
                     </div>
                     {/* Controls */}
-                    <div className="h-24 bg-gray-900 flex items-center justify-center gap-6 shrink-0 border-t border-gray-800">
+                    <div className="h-24 bg-white/5 backdrop-blur-md flex items-center justify-center gap-6 shrink-0 border-t border-white/10">
                         <button
                             onClick={handleSwipeLeft}
-                            className="w-14 h-14 bg-gray-800 rounded-full flex items-center justify-center text-red-500 hover:bg-red-500/20 hover:scale-110 transition-all shadow-lg"
+                            className="w-14 h-14 bg-white/10 border border-white/15 backdrop-blur-md rounded-full flex items-center justify-center text-rose-500 hover:bg-white/20 hover:scale-110 transition-all shadow-md"
                         >
                             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
 
                         <button
                             onClick={() => onExplain(currentMovie)}
-                            className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-6 rounded-full transition-colors shadow-[0_0_15px_rgba(79,70,229,0.5)]"
+                            className="bg-gradient-to-br from-indigo-500 to-cyan-400 hover:opacity-90 text-white font-bold py-2 px-6 rounded-[16px] transition-all shadow-lg"
                         >
                             Why this?
                         </button>
 
                         <button
                             onClick={handleSwipeRight}
-                            className="w-14 h-14 bg-gray-800 rounded-full flex items-center justify-center text-green-500 hover:bg-green-500/20 hover:scale-110 transition-all shadow-lg"
+                            className="w-14 h-14 bg-white/10 border border-white/15 backdrop-blur-md rounded-full flex items-center justify-center text-emerald-400 hover:bg-white/20 hover:scale-110 transition-all shadow-md"
                         >
                             <svg className="w-8 h-8 fill-current" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
                         </button>
