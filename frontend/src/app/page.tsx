@@ -58,7 +58,8 @@ export default function Home() {
 
     try {
       // Use environment variable for production, fallback to localhost for local dev
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const API_URL = rawApiUrl.replace(/\/$/, '');
       const payload = { ...preferences, user_id: user?.user_id };
       const response = await fetch(`${API_URL}/api/recommend/`, {
         method: 'POST',
@@ -104,7 +105,8 @@ export default function Home() {
       return;
     }
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const API_URL = rawApiUrl.replace(/\/$/, '');
       await fetch(`${API_URL}/api/movie/like/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
