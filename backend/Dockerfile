@@ -8,9 +8,9 @@ ENV PYTHONUNBUFFERED 1
 # Install SWI-Prolog and other dependencies required by PySWIP
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        swi-prolog \
-        gcc \
-        libpq-dev \
+    swi-prolog \
+    gcc \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set work directory
@@ -28,4 +28,4 @@ COPY . /app/
 EXPOSE 8000
 
 # Run migrations and start gunicorn server
-CMD bash -c "python manage.py migrate && gunicorn --bind 0.0.0.0:8000 movie_recommender.wsgi:application"
+CMD ["sh", "-c", "python manage.py migrate && gunicorn --bind 0.0.0.0:8000 movie_recommender.wsgi:application"]
