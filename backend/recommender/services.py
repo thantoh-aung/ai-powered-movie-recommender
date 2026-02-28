@@ -15,18 +15,42 @@ try:
 except Exception as e:
     print(f"Error loading prolog: {e}")
 
-embedding_model = None
-
-def get_embedding_model():
-    global embedding_model
-    if embedding_model is None:
-        try:
-            from sentence_transformers import SentenceTransformer
-            embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-        except Exception as e:
-            print(f"Exception initializing sentence_transformers: {e}")
-            return None
-    return embedding_model
+def get_openrouter_embedding(text):
+    import requests
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    model_name = os.getenv("OPENROUTER_EMBEDDING_MODEL", "nomic-ai/nomic-embed-text-v1.5")
+    
+    if not api_key:
+        print("OPENROUTER_API_KEY not found in environment variables.")
+        return None
+        
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": model_name,
+        "input": text
+    }
+    
+    try:
+        response = requests.post(
+            "https://openrouter.ai/api/v1/embeddings",
+            headers=headers,
+            json=payload,
+            timeout=10
+        )
+        if not response.ok:
+            print(f"OpenRouter API Error: {response.status_code} - {response.text}")
+        response.raise_for_status()
+        data = response.json()
+        if data and "data" in data and len(data["data"]) > 0:
+            return data["data"][0]["embedding"]
+        return None
+    except Exception as e:
+        print(f"Exception calling OpenRouter embeddings API: {e}")
+        return None
 
 def get_chroma_collection():
     try:
@@ -69,9 +93,8 @@ def get_recommendations(pref_genre, pref_mood, user_age, search_query="", user_i
     pool_ids = []
     
     if search_query and search_query.strip() and chroma_collection:
-        model = get_embedding_model()
-        if model:
-            query_embedding = model.encode(search_query).tolist()
+        query_embedding = get_openrouter_embedding(search_query)
+        if query_embedding:
             results = chroma_collection.query(
                 query_embeddings=[query_embedding],
                 n_results=100

@@ -9,10 +9,10 @@ except Exception as e:
     chromadb = None
 from django.conf import settings
 try:
-    from sentence_transformers import SentenceTransformer
+    from .services import get_openrouter_embedding
 except Exception as e:
-    print(f"Failed to import sentence_transformers in Celery tasks: {e}")
-    SentenceTransformer = None
+    print(f"Failed to import get_openrouter_embedding in Celery tasks: {e}")
+    get_openrouter_embedding = None
 
 TMDB_GENRES = {
     28: 'action', 12: 'adventure', 16: 'animation', 35: 'comedy', 80: 'crime',
@@ -48,15 +48,13 @@ def sync_movies_with_tmdb(max_pages=10):
     # Initialize chromadb client and model
     collection = None
     model = None
-    if chromadb is not None and SentenceTransformer is not None:
+    if chromadb is not None and get_openrouter_embedding is not None:
         try:
             from django.conf import settings
             chroma_client = chromadb.PersistentClient(path=settings.CHROMA_DB_DIR)
             collection = chroma_client.get_or_create_collection(name="movies")
-            from sentence_transformers import SentenceTransformer as ST
-            model = ST('all-MiniLM-L6-v2')
         except Exception as e:
-            print(f"Error initializing Chroma/SentenceTransformer: {e}")
+            print(f"Error initializing ChromaDB: {e}")
 
     print(f"Syncing {max_pages} pages of movies from TMDB...")
     
@@ -119,17 +117,18 @@ def sync_movies_with_tmdb(max_pages=10):
                     }
                 )
                 
-                if collection and model:
+                if collection and get_openrouter_embedding:
                     # Add/Update ChromaDB Entry
                     text_for_embedding = f"Title: {title}. Genres: {', '.join(genres)}. Cast: {', '.join(cast)}. Overview: {overview}"
-                    embedding = model.encode(text_for_embedding).tolist()
+                    embedding = get_openrouter_embedding(text_for_embedding)
                     
-                    collection.upsert(
-                        documents=[text_for_embedding],
-                        embeddings=[embedding],
-                        metadatas=[{"tmdb_id": movie_id, "title": title}],
-                        ids=[str(movie_id)]
-                    )
+                    if embedding:
+                        collection.upsert(
+                            documents=[text_for_embedding],
+                            embeddings=[embedding],
+                            metadatas=[{"tmdb_id": movie_id, "title": title}],
+                            ids=[str(movie_id)]
+                        )
                 new_movies_processed += 1
                 
         except Exception as e:
