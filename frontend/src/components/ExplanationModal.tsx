@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 interface Movie {
     title: string;
@@ -19,8 +19,18 @@ interface ExplanationModalProps {
 import { motion } from 'framer-motion';
 
 export default function ExplanationModal({ movie, onClose }: ExplanationModalProps) {
+    // Lock body scroll when modal is open
+    useEffect(() => {
+        const originalStyle = window.getComputedStyle(document.body).overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = originalStyle;
+        };
+    }, []);
+
     return (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-fade-in backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-fade-in backdrop-blur-sm"
+            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
