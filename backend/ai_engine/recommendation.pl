@@ -14,16 +14,16 @@ match_pref(Pref, List) :- Pref \== any, member(Pref, List).
 check_rating(UserAge, MinAge) :- UserAge >= MinAge.
 
 % Rules: Recommend a movie based on Genre, Mood, and Age
-% recommend_movie(Genre, Mood, UserAge, Title, Explanation, Popularity).
-recommend_movie(PrefGenre, PrefMood, UserAge, Title, Explanation, Popularity) :-
-    movie(_, Title, Genres, Moods, MinAge, _, Popularity),
+% recommend_movie(Genre, Mood, UserAge, ID, Title, Explanation, Popularity).
+recommend_movie(PrefGenre, PrefMood, UserAge, ID, Title, Explanation, Popularity) :-
+    movie(ID, Title, Genres, Moods, MinAge, _, Popularity),
     check_rating(UserAge, MinAge),
     match_pref(PrefGenre, Genres),
     match_pref(PrefMood, Moods),
     construct_explanation(PrefGenre, PrefMood, Title, MinAge, Genres, Moods, Explanation).
 
 % Rules: Recommend a movie from a strictly provided list of IDs (Hybrid AI)
-recommend_movie_in_pool(PrefGenre, PrefMood, UserAge, PoolIDs, Title, Explanation, Popularity) :-
+recommend_movie_in_pool(PrefGenre, PrefMood, UserAge, PoolIDs, ID, Title, Explanation, Popularity) :-
     movie(ID, Title, Genres, Moods, MinAge, _, Popularity),
     member(ID, PoolIDs),
     check_rating(UserAge, MinAge),
@@ -32,10 +32,10 @@ recommend_movie_in_pool(PrefGenre, PrefMood, UserAge, PoolIDs, Title, Explanatio
     construct_explanation(PrefGenre, PrefMood, Title, MinAge, Genres, Moods, Explanation).
 
 % Rules: Recommend a movie based on user's watch history (Collaborative/Content Hybrid)
-recommend_similar_to_liked(UserID, UserAge, Title, Explanation, Popularity) :-
+recommend_similar_to_liked(UserID, UserAge, ID, Title, Explanation, Popularity) :-
     user_likes(UserID, LikedMovieID),
     movie(LikedMovieID, LikedTitle, LikedGenres, LikedMoods, _, _, _),
-    movie(_, Title, Genres, Moods, MinAge, _, Popularity),
+    movie(ID, Title, Genres, Moods, MinAge, _, Popularity),
     Title \== LikedTitle,
     check_rating(UserAge, MinAge),
     member(G, LikedGenres), member(G, Genres),

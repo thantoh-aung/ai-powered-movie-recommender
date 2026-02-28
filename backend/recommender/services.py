@@ -62,33 +62,39 @@ def get_chroma_collection():
         return None
 
 def load_prolog_kb():
-    from .models import Movie
-    # Only load if not already loaded (check for one movie fact)
+    from .models import Movie, WatchHistory
+    # 1. Load Movies if not already loaded
     try:
         check = list(prolog.query("movie(_, _, _, _, _, _, _)"))
-        if check:
-            print("Prolog KB already contains data. Skipping reload.")
-            return
-    except:
-        pass
+        if not check:
+            print("Loading Movies into Prolog KB...")
+            movies = Movie.objects.all().only('tmdb_id', 'title', 'genres', 'moods', 'min_age', 'release_year', 'popularity')
+            for m in movies:
+                genres_str = "[" + ",".join([f"'{g}'" for g in m.genres]) + "]"
+                moods_str = "[" + ",".join([f"'{mood}'" for mood in m.moods]) + "]"
+                title = m.title.replace("'", "\\'")
+                try:
+                    fact_str = f"movie({m.tmdb_id}, '{title}', {genres_str}, {moods_str}, {m.min_age}, {m.release_year}, {int(m.popularity)})"
+                    prolog.assertz(fact_str)
+                except: pass
+    except: pass
 
-    print("Loading KB from local DB...")
-    movies = Movie.objects.all().only('tmdb_id', 'title', 'genres', 'moods', 'min_age', 'release_year', 'popularity')
-    count = 0
-    for m in movies:
-        genres_str = "[" + ",".join([f"'{g}'" for g in m.genres]) + "]"
-        moods_str = "[" + ",".join([f"'{mood}'" for mood in m.moods]) + "]"
-        title = m.title.replace("'", "\\'")
-        try:
-            fact_str = f"movie({m.tmdb_id}, '{title}', {genres_str}, {moods_str}, {m.min_age}, {m.release_year}, {int(m.popularity)})"
-            prolog.assertz(fact_str)
-            count += 1
-        except:
-             pass
-    print(f"Loaded {count} movies into Prolog KB.")
+    # 2. Load User Likes if not already loaded
+    try:
+        likes = WatchHistory.objects.filter(liked=True)
+        for like in likes:
+            try:
+                # Check if fact already exists to avoid duplicates
+                check_like = list(prolog.query(f"user_likes({like.user.id}, {like.movie.tmdb_id})"))
+                if not check_like:
+                    prolog.assertz(f"user_likes({like.user.id}, {like.movie.tmdb_id})")
+            except: pass
+    except Exception as e:
+        print(f"Error loading likes into Prolog: {e}")
 
 def get_recommendations(pref_genre, pref_mood, user_age, search_query="", user_id=None):
     from .models import Movie
+    load_prolog_kb() # Ensure KB is ready
     chroma_collection = get_chroma_collection()
     pool_ids = []
     
@@ -108,40 +114,47 @@ def get_recommendations(pref_genre, pref_mood, user_age, search_query="", user_i
     # 1. Collaborative search (Similar to liked)
     if user_id:
         try:
-             results_raw.extend(list(prolog.query(f"recommend_similar_to_liked({user_id}, {user_age}, Title, Explanation, Popularity)")))
+             # If searching, we optionally filter collaborative results by the pool
+             collab_query = f"recommend_similar_to_liked({user_id}, {user_age}, ID, Title, Explanation, Popularity)"
+             collab_results = list(prolog.query(collab_query))
+             
+             if pool_ids:
+                 # Strictly filter collaborative results to only those in the search pool
+                 collab_results = [r for r in collab_results if int(r.get("ID", 0)) in pool_ids]
+             
+             results_raw.extend(collab_results)
         except: pass
         
     # 2. Constraints search (Search Pool OR Global)
     if pool_ids:
-        pool_str = "[" + ",".join([str(pid) for pid in pool_ids]) + "]"
         # If we have a search pool, we ONLY want movies from that pool to respect the search query
-        query = f"recommend_movie_in_pool('{pref_genre}', '{pref_mood}', {user_age}, {pool_str}, Title, Explanation, Popularity)"
+        query = f"recommend_movie_in_pool('{pref_genre}', '{pref_mood}', {user_age}, {pool_str}, ID, Title, Explanation, Popularity)"
         try:
             pool_results = list(prolog.query(query))
-            # Fallbacks within the pool
+            # Fallbacks within the pool (but STAY in the pool)
             if not pool_results and pref_mood != 'any':
-                pool_results.extend(list(prolog.query(f"recommend_movie_in_pool('{pref_genre}', 'any', {user_age}, {pool_str}, Title, Explanation, Popularity)")))
+                pool_results.extend(list(prolog.query(f"recommend_movie_in_pool('{pref_genre}', 'any', {user_age}, {pool_str}, ID, Title, Explanation, Popularity)")))
             if not pool_results and pref_genre != 'any':
-                pool_results.extend(list(prolog.query(f"recommend_movie_in_pool('any', '{pref_mood}', {user_age}, {pool_str}, Title, Explanation, Popularity)")))
+                pool_results.extend(list(prolog.query(f"recommend_movie_in_pool('any', '{pref_mood}', {user_age}, {pool_str}, ID, Title, Explanation, Popularity)")))
             if not pool_results:
-                pool_results.extend(list(prolog.query(f"recommend_movie_in_pool('any', 'any', {user_age}, {pool_str}, Title, Explanation, Popularity)")))
+                pool_results.extend(list(prolog.query(f"recommend_movie_in_pool('any', 'any', {user_age}, {pool_str}, ID, Title, Explanation, Popularity)")))
             
             results_raw.extend(pool_results)
         except Exception as e:
             print(f"Error querying search pool: {e}")
-    else:
-        # Global recommendation (No search query)
-        query = f"recommend_movie('{pref_genre}', '{pref_mood}', {user_age}, Title, Explanation, Popularity)"
+    elif not search_query or not search_query.strip():
+        # Global recommendation (ONLY if NOT searching)
+        query = f"recommend_movie('{pref_genre}', '{pref_mood}', {user_age}, ID, Title, Explanation, Popularity)"
         try:
             results_raw.extend(list(prolog.query(query)))
             
             # Fallbacks
             if not results_raw and pref_mood != 'any':
-                results_raw.extend(list(prolog.query(f"recommend_movie('{pref_genre}', 'any', {user_age}, Title, Explanation, Popularity)")))
+                results_raw.extend(list(prolog.query(f"recommend_movie('{pref_genre}', 'any', {user_age}, ID, Title, Explanation, Popularity)")))
             if not results_raw and pref_genre != 'any':
-                results_raw.extend(list(prolog.query(f"recommend_movie('any', '{pref_mood}', {user_age}, Title, Explanation, Popularity)")))
+                results_raw.extend(list(prolog.query(f"recommend_movie('any', '{pref_mood}', {user_age}, ID, Title, Explanation, Popularity)")))
             if not results_raw:
-                results_raw.extend(list(prolog.query(f"recommend_movie('any', 'any', {user_age}, Title, Explanation, Popularity)")))
+                results_raw.extend(list(prolog.query(f"recommend_movie('any', 'any', {user_age}, ID, Title, Explanation, Popularity)")))
         except Exception as e:
             print(f"Error querying global recommendations: {e}")
 
