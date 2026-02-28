@@ -70,8 +70,8 @@ def load_prolog_kb():
             print("Loading Movies into Prolog KB...")
             movies = Movie.objects.all().only('tmdb_id', 'title', 'genres', 'moods', 'min_age', 'release_year', 'popularity')
             for m in movies:
-                genres_str = "[" + ",".join([f"'{g}'" for g in m.genres]) + "]"
-                moods_str = "[" + ",".join([f"'{mood}'" for mood in m.moods]) + "]"
+                genres_str = "[" + ",".join([f"'{str(g).lower()}'" for g in m.genres]) + "]"
+                moods_str = "[" + ",".join([f"'{str(mood).lower()}'" for mood in m.moods]) + "]"
                 title = m.title.replace("'", "\\'")
                 try:
                     fact_str = f"movie({m.tmdb_id}, '{title}', {genres_str}, {moods_str}, {m.min_age}, {m.release_year}, {int(m.popularity)})"
@@ -93,6 +93,8 @@ def load_prolog_kb():
         print(f"Error loading likes into Prolog: {e}")
 
 def get_recommendations(pref_genre, pref_mood, user_age, search_query="", user_id=None):
+    pref_genre = pref_genre.lower() if pref_genre else 'any'
+    pref_mood = pref_mood.lower() if pref_mood else 'any'
     from .models import Movie
     load_prolog_kb() # Ensure KB is ready
     chroma_collection = get_chroma_collection()
@@ -127,6 +129,7 @@ def get_recommendations(pref_genre, pref_mood, user_age, search_query="", user_i
         
     # 2. Constraints search (Search Pool OR Global)
     if pool_ids:
+        pool_str = "[" + ",".join(map(str, pool_ids)) + "]"
         # If we have a search pool, we ONLY want movies from that pool to respect the search query
         query = f"recommend_movie_in_pool('{pref_genre}', '{pref_mood}', {user_age}, {pool_str}, ID, Title, Explanation, Popularity)"
         try:

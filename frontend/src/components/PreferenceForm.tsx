@@ -21,8 +21,7 @@ export default function PreferenceForm({ onSubmit, isLoading, userAge }: Prefere
     onSubmit({
       genre,
       mood,
-      age: userAge ?? (typeof age === 'number' ? age : 18),
-      search_query: ''
+      age: userAge ?? (typeof age === 'number' ? age : 18)
     });
   };
 

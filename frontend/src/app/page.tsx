@@ -107,11 +107,12 @@ export default function Home() {
   };
 
   const handleFormSubmit = (preferences: { genre: string; mood: string; age: number; search_query?: string }) => {
-    setCurrentPrefs({
+    const updatedPrefs = {
       ...preferences,
-      search_query: preferences.search_query || ''
-    });
-    fetchRecommendations(preferences);
+      search_query: searchQuery
+    };
+    setCurrentPrefs(updatedPrefs);
+    fetchRecommendations(updatedPrefs);
   };
 
   const handleRateMovie = async (movie: Movie, liked: boolean) => {
