@@ -28,4 +28,4 @@ COPY . /app/
 EXPOSE 8000
 
 # Run migrations and start gunicorn server
-CMD ["sh", "-c", "python manage.py migrate && gunicorn --bind 0.0.0.0:8000 movie_recommender.wsgi:application"]
+CMD ["sh", "-c", "python manage.py migrate && gunicorn --bind 0.0.0.0:8000 --timeout 600 movie_recommender.wsgi:application"]
