@@ -52,13 +52,66 @@ def get_openrouter_embedding(text):
         print(f"Exception calling OpenRouter embeddings API: {e}")
         return None
 
+class SimpleVectorDB:
+    def __init__(self, path):
+        import json, os
+        self.path = path
+        self.data = {"ids": [], "embeddings": [], "documents": [], "metadatas": []}
+        if os.path.exists(path):
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    self.data = json.load(f)
+            except: pass
+
+    def save(self):
+        import json
+        with open(self.path, 'w', encoding='utf-8') as f:
+            json.dump(self.data, f)
+
+    def upsert(self, documents, embeddings, metadatas, ids):
+        for doc, emb, meta, _id in zip(documents, embeddings, metadatas, ids):
+            if _id in self.data["ids"]:
+                idx = self.data["ids"].index(_id)
+                self.data["embeddings"][idx] = emb
+                self.data["documents"][idx] = doc
+                self.data["metadatas"][idx] = meta
+            else:
+                self.data["ids"].append(_id)
+                self.data["embeddings"].append(emb)
+                self.data["documents"].append(doc)
+                self.data["metadatas"].append(meta)
+        self.save()
+
+    def query(self, query_embeddings, n_results=10):
+        import numpy as np
+        if not self.data["embeddings"]: return {"ids": [[]], "distances": [[]]}
+        
+        q_emb = np.array(query_embeddings[0])
+        db_embs = np.array(self.data["embeddings"])
+        
+        # Cosine similarity calculation
+        q_norm = np.linalg.norm(q_emb)
+        db_norms = np.linalg.norm(db_embs, axis=1)
+        
+        # Avoid division by zero
+        norms = q_norm * db_norms
+        norms[norms == 0] = 1e-10
+        
+        similarities = np.dot(db_embs, q_emb) / norms
+        
+        top_indices = np.argsort(similarities)[::-1][:n_results]
+        
+        return {
+            "ids": [[self.data["ids"][i] for i in top_indices]],
+            "distances": [[1.0 - similarities[i] for i in top_indices]]
+        }
+
 def get_chroma_collection():
     try:
-        import chromadb
-        client = chromadb.PersistentClient(path=settings.CHROMA_DB_DIR)
-        return client.get_or_create_collection(name="movies")
+        db_path = os.path.join(settings.BASE_DIR, "simple_chroma.json")
+        return SimpleVectorDB(db_path)
     except Exception as e:
-        print(f"Exception initializing chromadb: {e}")
+        print(f"Exception initializing SimpleVectorDB: {e}")
         return None
 
 def load_prolog_kb():
@@ -163,15 +216,17 @@ def get_recommendations(pref_genre, pref_mood, user_age, search_query="", user_i
         # NO search query: Global recommendation based on Genre/Mood only
         query = f"recommend_movie('{pref_genre}', '{pref_mood}', {user_age}, ID, Title, Explanation, Popularity)"
         try:
-            results_raw.extend(list(prolog.query(query)))
+            global_results = list(prolog.query(query))
             
-            # Fallbacks globally
-            if not results_raw and pref_mood != 'any':
-                results_raw.extend(list(prolog.query(f"recommend_movie('{pref_genre}', 'any', {user_age}, ID, Title, Explanation, Popularity)")))
-            if not results_raw and pref_genre != 'any':
-                results_raw.extend(list(prolog.query(f"recommend_movie('any', '{pref_mood}', {user_age}, ID, Title, Explanation, Popularity)")))
-            if not results_raw:
-                results_raw.extend(list(prolog.query(f"recommend_movie('any', 'any', {user_age}, ID, Title, Explanation, Popularity)")))
+            # Fallbacks globally (only evaluate global_results, do not check results_raw)
+            if not global_results and pref_mood != 'any':
+                global_results.extend(list(prolog.query(f"recommend_movie('{pref_genre}', 'any', {user_age}, ID, Title, Explanation, Popularity)")))
+            if not global_results and pref_genre != 'any':
+                global_results.extend(list(prolog.query(f"recommend_movie('any', '{pref_mood}', {user_age}, ID, Title, Explanation, Popularity)")))
+            if not global_results:
+                global_results.extend(list(prolog.query(f"recommend_movie('any', 'any', {user_age}, ID, Title, Explanation, Popularity)")))
+                
+            results_raw.extend(global_results)
         except Exception as e:
             print(f"Error querying global recommendations: {e}")
 

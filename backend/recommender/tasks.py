@@ -2,15 +2,13 @@ import os
 import requests
 from celery import shared_task
 from .models import Movie
-try:
-    import chromadb
-except Exception as e:
-    print(f"Failed to import chromadb in Celery tasks: {e}")
-    chromadb = None
 from django.conf import settings
 try:
-    from .services import get_openrouter_embedding
+    from .services import get_openrouter_embedding, get_chroma_collection
 except Exception as e:
+    print(f"Failed to import from services in Celery tasks: {e}")
+    get_openrouter_embedding = None
+    get_chroma_collection = None
     print(f"Failed to import get_openrouter_embedding in Celery tasks: {e}")
     get_openrouter_embedding = None
 
@@ -47,12 +45,9 @@ def sync_movies_with_tmdb(max_pages=10):
 
     # Initialize chromadb client and model
     collection = None
-    model = None
-    if chromadb is not None and get_openrouter_embedding is not None:
+    if get_openrouter_embedding is not None and get_chroma_collection is not None:
         try:
-            from django.conf import settings
-            chroma_client = chromadb.PersistentClient(path=settings.CHROMA_DB_DIR)
-            collection = chroma_client.get_or_create_collection(name="movies")
+            collection = get_chroma_collection()
         except Exception as e:
             print(f"Error initializing ChromaDB: {e}")
 
