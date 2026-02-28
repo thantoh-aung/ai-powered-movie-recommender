@@ -206,7 +206,7 @@ export default function Home() {
           <div className="lg:w-2/3">
             {movies.length > 0 ? (
               <div>
-                <h2 className="text-3xl font-bold mb-8 border-b border-white/10 pb-4 text-[#E5E7EB]">
+                <h2 className="text-3xl font-bold mb-8 border-b border-white/10 pb-4 text-[#E5E7EB] text-center lg:text-left">
                   {isSwipeMode ? 'Discover Movies' : 'Top Matches for You'}
                 </h2>
 
