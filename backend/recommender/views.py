@@ -112,3 +112,16 @@ class RecommendMovieView(APIView):
              return Response({"message": "No movies found matching your preferences. Try adjusting them!"}, status=status.HTTP_200_OK)
              
         return Response({"recommendations": recommendations}, status=status.HTTP_200_OK)
+class SetupDatabaseView(APIView):
+    """
+    Temporary view to trigger database sync on Render Free Tier 
+    where shell access is disabled.
+    """
+    def get(self, request):
+        from .tasks import sync_movies_with_tmdb
+        print("Starting remote setup sync...")
+        count = sync_movies_with_tmdb(max_pages=25)
+        return Response({
+            "message": f"Successfully synced {count} movies to PostgreSQL!",
+            "status": "ready"
+        }, status=status.HTTP_200_OK)
