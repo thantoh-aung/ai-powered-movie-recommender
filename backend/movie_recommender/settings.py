@@ -127,8 +127,14 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 # CORS Configuration
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True 
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = False 
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "https://ai-powered-movie-recommender-theta.vercel.app",
+    "https://ai-powered-movie-recommender.vercel.app",
+]
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
