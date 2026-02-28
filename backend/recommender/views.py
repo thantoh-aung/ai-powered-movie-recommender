@@ -118,10 +118,24 @@ class SetupDatabaseView(APIView):
     where shell access is disabled.
     """
     def get(self, request):
+        import threading
         from .tasks import sync_movies_with_tmdb
-        print("Starting remote setup sync...")
-        count = sync_movies_with_tmdb(max_pages=25)
+        
+        print("Starting remote setup sync in background thread...")
+        
+        def run_sync_in_background():
+            try:
+                sync_movies_with_tmdb(max_pages=25)
+                print("Background sync completed successfully!")
+            except Exception as e:
+                print(f"Background sync failed: {e}")
+                
+        # Kick off background thread so the web request doesn't timeout
+        thread = threading.Thread(target=run_sync_in_background)
+        thread.daemon = True
+        thread.start()
+        
         return Response({
-            "message": f"Successfully synced {count} movies to PostgreSQL!",
-            "status": "ready"
+            "message": "Background sync started! It will take about 2-3 minutes to download all 500 movies. Check your Render logs for progress.",
+            "status": "processing"
         }, status=status.HTTP_200_OK)
