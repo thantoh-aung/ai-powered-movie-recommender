@@ -101,14 +101,21 @@ def get_recommendations(pref_genre, pref_mood, user_age, search_query="", user_i
     pool_ids = []
     
     if search_query and search_query.strip() and chroma_collection:
+        print(f"DEBUG: Searching for '{search_query}'")
         query_embedding = get_openrouter_embedding(search_query)
         if query_embedding:
+            print("DEBUG: Embedding generated successfully. Querying Chroma DB...")
             results = chroma_collection.query(
                 query_embeddings=[query_embedding],
                 n_results=100
             )
             if results and results.get("ids") and len(results["ids"]) > 0:
-                pool_ids = [int(x) for x in results["ids"][0]]
+                pool_ids = [int(x) for x in results["ids"][0] if str(x).isdigit()]
+                print(f"DEBUG: Found {len(pool_ids)} matching pool_ids in ChromaDB.")
+            else:
+                print("DEBUG: ChromaDB returned no results.")
+        else:
+            print("DEBUG: Failed to generate embedding from OpenRouter.")
             
     # Always include collaborative filtering if user_id is provided
     results_raw = []
@@ -128,30 +135,37 @@ def get_recommendations(pref_genre, pref_mood, user_age, search_query="", user_i
         except: pass
         
     # 2. Constraints search (Search Pool OR Global)
-    if pool_ids:
-        pool_str = "[" + ",".join(map(str, pool_ids)) + "]"
-        # If we have a search pool, we ONLY want movies from that pool to respect the search query
-        query = f"recommend_movie_in_pool('{pref_genre}', '{pref_mood}', {user_age}, {pool_str}, ID, Title, Explanation, Popularity)"
-        try:
-            pool_results = list(prolog.query(query))
-            # Fallbacks within the pool (but STAY in the pool)
-            if not pool_results and pref_mood != 'any':
-                pool_results.extend(list(prolog.query(f"recommend_movie_in_pool('{pref_genre}', 'any', {user_age}, {pool_str}, ID, Title, Explanation, Popularity)")))
-            if not pool_results and pref_genre != 'any':
-                pool_results.extend(list(prolog.query(f"recommend_movie_in_pool('any', '{pref_mood}', {user_age}, {pool_str}, ID, Title, Explanation, Popularity)")))
-            if not pool_results:
-                pool_results.extend(list(prolog.query(f"recommend_movie_in_pool('any', 'any', {user_age}, {pool_str}, ID, Title, Explanation, Popularity)")))
-            
-            results_raw.extend(pool_results)
-        except Exception as e:
-            print(f"Error querying search pool: {e}")
-    elif not search_query or not search_query.strip():
-        # Global recommendation (ONLY if NOT searching)
+    if search_query and search_query.strip():
+        # Searching via keywords - ONLY search within the pool
+        if pool_ids:
+            pool_str = "[" + ",".join(map(str, pool_ids)) + "]"
+            query = f"recommend_movie_in_pool('{pref_genre}', '{pref_mood}', {user_age}, {pool_str}, ID, Title, Explanation, Popularity)"
+            try:
+                pool_results = list(prolog.query(query))
+                
+                # Fallbacks strictly within the semantic pool
+                if not pool_results and pref_mood != 'any':
+                    pool_results.extend(list(prolog.query(f"recommend_movie_in_pool('{pref_genre}', 'any', {user_age}, {pool_str}, ID, Title, Explanation, Popularity)")))
+                if not pool_results and pref_genre != 'any':
+                    pool_results.extend(list(prolog.query(f"recommend_movie_in_pool('any', '{pref_mood}', {user_age}, {pool_str}, ID, Title, Explanation, Popularity)")))
+                if not pool_results:
+                    # If semantic pool has no exact genre/mood match, keyword intent overrides genre/mood.
+                    # Return EVERYTHING in the keyword pool.
+                    pool_results.extend(list(prolog.query(f"recommend_movie_in_pool('any', 'any', {user_age}, {pool_str}, ID, Title, Explanation, Popularity)")))
+                
+                results_raw.extend(pool_results)
+            except Exception as e:
+                print(f"Error querying search pool: {e}")
+        else:
+            # They searched a keyword but Chroma found 0 embeddings for it. Do not return all movies.
+            pass
+    else:
+        # NO search query: Global recommendation based on Genre/Mood only
         query = f"recommend_movie('{pref_genre}', '{pref_mood}', {user_age}, ID, Title, Explanation, Popularity)"
         try:
             results_raw.extend(list(prolog.query(query)))
             
-            # Fallbacks
+            # Fallbacks globally
             if not results_raw and pref_mood != 'any':
                 results_raw.extend(list(prolog.query(f"recommend_movie('{pref_genre}', 'any', {user_age}, ID, Title, Explanation, Popularity)")))
             if not results_raw and pref_genre != 'any':
