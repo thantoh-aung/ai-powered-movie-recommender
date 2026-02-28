@@ -105,45 +105,50 @@ def get_recommendations(pref_genre, pref_mood, user_age, search_query="", user_i
     # Always include collaborative filtering if user_id is provided
     results_raw = []
     
-    # 1. Content-based / Collaborative search
+    # 1. Collaborative search (Similar to liked)
     if user_id:
         try:
              results_raw.extend(list(prolog.query(f"recommend_similar_to_liked({user_id}, {user_age}, Title, Explanation, Popularity)")))
         except: pass
         
-    # 2. Constraints search
+    # 2. Constraints search (Search Pool OR Global)
     if pool_ids:
         pool_str = "[" + ",".join([str(pid) for pid in pool_ids]) + "]"
+        # If we have a search pool, we ONLY want movies from that pool to respect the search query
         query = f"recommend_movie_in_pool('{pref_genre}', '{pref_mood}', {user_age}, {pool_str}, Title, Explanation, Popularity)"
-    else:
-        query = f"recommend_movie('{pref_genre}', '{pref_mood}', {user_age}, Title, Explanation, Popularity)"
-        
-    try:
-        results_raw.extend(list(prolog.query(query)))
-        
-        # Fallbacks if still empty
-        if not results_raw and pref_mood != 'any':
-            if pool_ids:
-                fallback_query = f"recommend_movie_in_pool('{pref_genre}', 'any', {user_age}, {pool_str}, Title, Explanation, Popularity)"
-            else:
-                fallback_query = f"recommend_movie('{pref_genre}', 'any', {user_age}, Title, Explanation, Popularity)"
-            results_raw.extend(list(prolog.query(fallback_query)))
+        try:
+            pool_results = list(prolog.query(query))
+            # Fallbacks within the pool
+            if not pool_results and pref_mood != 'any':
+                pool_results.extend(list(prolog.query(f"recommend_movie_in_pool('{pref_genre}', 'any', {user_age}, {pool_str}, Title, Explanation, Popularity)")))
+            if not pool_results and pref_genre != 'any':
+                pool_results.extend(list(prolog.query(f"recommend_movie_in_pool('any', '{pref_mood}', {user_age}, {pool_str}, Title, Explanation, Popularity)")))
+            if not pool_results:
+                pool_results.extend(list(prolog.query(f"recommend_movie_in_pool('any', 'any', {user_age}, {pool_str}, Title, Explanation, Popularity)")))
             
-        if not results_raw and pref_genre != 'any':
-            if pool_ids:
-                fallback_query = f"recommend_movie_in_pool('any', '{pref_mood}', {user_age}, {pool_str}, Title, Explanation, Popularity)"
-            else:
-                fallback_query = f"recommend_movie('any', '{pref_mood}', {user_age}, Title, Explanation, Popularity)"
-            results_raw.extend(list(prolog.query(fallback_query)))
+            results_raw.extend(pool_results)
+        except Exception as e:
+            print(f"Error querying search pool: {e}")
+    else:
+        # Global recommendation (No search query)
+        query = f"recommend_movie('{pref_genre}', '{pref_mood}', {user_age}, Title, Explanation, Popularity)"
+        try:
+            results_raw.extend(list(prolog.query(query)))
+            
+            # Fallbacks
+            if not results_raw and pref_mood != 'any':
+                results_raw.extend(list(prolog.query(f"recommend_movie('{pref_genre}', 'any', {user_age}, Title, Explanation, Popularity)")))
+            if not results_raw and pref_genre != 'any':
+                results_raw.extend(list(prolog.query(f"recommend_movie('any', '{pref_mood}', {user_age}, Title, Explanation, Popularity)")))
+            if not results_raw:
+                results_raw.extend(list(prolog.query(f"recommend_movie('any', 'any', {user_age}, Title, Explanation, Popularity)")))
+        except Exception as e:
+            print(f"Error querying global recommendations: {e}")
 
-        if not results_raw:
-            if pool_ids:
-                fallback_query = f"recommend_movie_in_pool('any', 'any', {user_age}, {pool_str}, Title, Explanation, Popularity)"
-            else:
-                fallback_query = f"recommend_movie('any', 'any', {user_age}, Title, Explanation, Popularity)"
-            results_raw.extend(list(prolog.query(fallback_query)))
-
+    try:
         unique_matches = {}
+        # If we are searching, we want to boost pool results even more
+        is_searching = bool(search_query and search_query.strip())
         for res in results_raw:
             title_raw = res.get("Title")
             if not title_raw: continue
@@ -152,9 +157,14 @@ def get_recommendations(pref_genre, pref_mood, user_age, search_query="", user_i
             explanation = explanation_raw.decode('utf-8') if isinstance(explanation_raw, bytes) else str(explanation_raw)
             popularity = int(res.get("Popularity", 50))
             
-            # Boost popularity heavily if it's a collaborative match so they appear first!
+            # Boost popularity heavily if it's a collaborative match
             if "because you liked" in explanation:
                 popularity += 10000
+            
+            # If we are searching, we should boost results that were actually found in the search pool
+            # (Prolog might have mixed them up)
+            if is_searching:
+                popularity += 5000 
             
             if title not in unique_matches:
                 unique_matches[title] = {"title": title, "explanation": explanation, "popularity": popularity}
