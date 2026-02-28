@@ -34,7 +34,8 @@ class LoginView(APIView):
         if user is not None:
              age = None
              try:
-                 age = user.profile.age
+                 profile = UserProfile.objects.get(user=user)
+                 age = profile.age
              except UserProfile.DoesNotExist:
                  pass
              return Response({'user_id': user.id, 'username': user.username, 'age': age}, status=status.HTTP_200_OK)
@@ -94,16 +95,16 @@ class RecommendMovieView(APIView):
                 pass
 
         # SYNC FALLBACK FOR SERVERLESS (Vercel/Render)
-        # If DB is empty or very low, trigger an async build and return 202
+        # Only auto-trigger if DB is truly empty. For filling to 500, use: python manage.py fetch_movies
         movie_count = Movie.objects.count()
-        if movie_count < 100:
+        if movie_count < 10:
             try:
                 from .tasks import fetch_popular_movies
-                print(f"Low movie count ({movie_count}). Triggering async sync...")
+                print(f"Very low movie count ({movie_count}). Triggering async sync...")
                 fetch_popular_movies.delay() # Run in Celery
                 return Response({'message': 'Initializing AI Knowledge Base (this may take a minute on first launch)...', 'status': 'building'}, status=status.HTTP_202_ACCEPTED)
             except Exception as e:
-                print(f"Async sync fallback failed: {e}")
+                pass  # Celery not available locally, continue serving what we have
 
         recommendations = get_recommendations(genre, mood, age, search_query, user_id)
         

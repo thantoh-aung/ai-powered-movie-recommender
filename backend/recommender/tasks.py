@@ -1,5 +1,6 @@
 import os
 import requests
+import time
 from celery import shared_task
 from .models import Movie
 from django.conf import settings
@@ -35,9 +36,9 @@ def infer_mood(overview, genres):
 
 @shared_task
 def fetch_popular_movies():
-    return sync_movies_with_tmdb(max_pages=10)
+    return sync_movies_with_tmdb(max_pages=25)
 
-def sync_movies_with_tmdb(max_pages=10):
+def sync_movies_with_tmdb(max_pages=25):
     api_key = os.getenv("TMDB_API_KEY")
     if not api_key:
         print("No TMDB API key, skipping.")
@@ -54,6 +55,8 @@ def sync_movies_with_tmdb(max_pages=10):
     print(f"Syncing {max_pages} pages of movies from TMDB...")
     
     new_movies_processed = 0
+    embedding_disabled = False  # Circuit breaker: stop trying embeddings after first failure
+    
     for page in range(1, max_pages + 1):
         url = f"https://api.themoviedb.org/3/movie/popular?api_key={api_key}&language=en-US&page={page}"
         try:
@@ -70,6 +73,11 @@ def sync_movies_with_tmdb(max_pages=10):
                 # Fetch credits for this movie to get cast
                 credits_url = f"https://api.themoviedb.org/3/movie/{movie_id}/credits?api_key={api_key}"
                 credits_resp = requests.get(credits_url, timeout=10).json()
+                
+                # Safety throttle: TMDB has a 40 reqs / 10s limit. 
+                # With 0.25s sleep + processing time, we stay well within safety.
+                time.sleep(0.25)
+                
                 cast = [actor["name"] for actor in credits_resp.get("cast", [])[:5]]
 
                 # Improved age inference 
@@ -112,8 +120,8 @@ def sync_movies_with_tmdb(max_pages=10):
                     }
                 )
                 
-                if collection and get_openrouter_embedding:
-                    # Add/Update ChromaDB Entry
+                # Only attempt embeddings if they haven't already failed
+                if collection and get_openrouter_embedding and not embedding_disabled:
                     text_for_embedding = f"Title: {title}. Genres: {', '.join(genres)}. Cast: {', '.join(cast)}. Overview: {overview}"
                     embedding = get_openrouter_embedding(text_for_embedding)
                     
@@ -124,10 +132,20 @@ def sync_movies_with_tmdb(max_pages=10):
                             metadatas=[{"tmdb_id": movie_id, "title": title}],
                             ids=[str(movie_id)]
                         )
+                    else:
+                        # Circuit breaker: embedding failed (likely 401/no credits).
+                        # Stop wasting API calls — movies still save to DB fine.
+                        embedding_disabled = True
+                        print("⚠️  OpenRouter embedding failed. Disabling embeddings for the rest of this sync.")
+                        print("   (Movies will still be saved to the database. Local keyword search will work.)")
+                        
                 new_movies_processed += 1
                 
         except Exception as e:
             print(f"Error loading TMDB movies page {page}: {e}")
 
     print(f"Finished processing {new_movies_processed} movies.")
+    if embedding_disabled:
+        print("Note: Embeddings were skipped. Run 'python manage.py backfill_chroma' later when your API key is valid.")
     return new_movies_processed
+
