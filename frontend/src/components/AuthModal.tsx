@@ -48,7 +48,7 @@ export default function AuthModal({ onClose, onLoginSuccess }: AuthModalProps) {
             // but we can assume age is handled strictly backend-side or via a separate profile fetch.
             if (data.age) localStorage.setItem('ai_user_age', data.age.toString());
 
-            onLoginSuccess({ user_id: data.user_id, username: data.username });
+            onLoginSuccess({ user_id: data.user_id, username: data.username, age: data.age });
         } catch (err: any) {
             setError(err.message);
         } finally {

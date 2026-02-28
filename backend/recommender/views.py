@@ -32,7 +32,12 @@ class LoginView(APIView):
         password = request.data.get('password')
         user = authenticate(username=username, password=password)
         if user is not None:
-             return Response({'user_id': user.id, 'username': user.username}, status=status.HTTP_200_OK)
+             age = None
+             try:
+                 age = user.profile.age
+             except UserProfile.DoesNotExist:
+                 pass
+             return Response({'user_id': user.id, 'username': user.username, 'age': age}, status=status.HTTP_200_OK)
         return Response({'error': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
 class LikeMovieView(APIView):
