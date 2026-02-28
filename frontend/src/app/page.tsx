@@ -52,9 +52,11 @@ export default function Home() {
     setUser(null);
   };
 
-  const fetchRecommendations = async (preferences: { genre: string; mood: string; age: number; search_query?: string }) => {
-    setIsLoading(true);
-    setError('');
+  const fetchRecommendations = async (preferences: { genre: string; mood: string; age: number; search_query?: string }, isRetry = false) => {
+    if (!isRetry) {
+      setIsLoading(true);
+      setError('');
+    }
 
     try {
       // Use environment variable for production, fallback to localhost for local dev
@@ -69,6 +71,16 @@ export default function Home() {
         body: JSON.stringify(payload),
       });
 
+      if (response.status === 202) {
+        // Backend is asynchronously building the knowledge base via Celery.
+        const data = await response.json();
+        setError(data.message); // Temporarily show the building message
+        setMovies([]);
+        // Poll again in 5 seconds
+        setTimeout(() => fetchRecommendations(preferences, true), 5000);
+        return;
+      }
+
       const data = await response.json();
 
       if (!response.ok) throw new Error(data.message || 'Failed to fetch recommendations');
@@ -77,12 +89,15 @@ export default function Home() {
         setError(data.message);
         setMovies([]);
       } else {
+        setError('');
         setMovies(data.recommendations);
       }
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
     } finally {
-      setIsLoading(false);
+      if (!isRetry || (isRetry && error === '')) {
+        setIsLoading(false);
+      }
     }
   };
 

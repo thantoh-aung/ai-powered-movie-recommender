@@ -94,17 +94,16 @@ class RecommendMovieView(APIView):
                 pass
 
         # SYNC FALLBACK FOR SERVERLESS (Vercel/Render)
-        # If DB is empty or very low, trigger a sync now (since Celery might not be running)
+        # If DB is empty or very low, trigger an async build and return 202
         movie_count = Movie.objects.count()
         if movie_count < 100:
             try:
-                from .tasks import sync_movies_with_tmdb
-                from .services import load_prolog_kb
-                print(f"Low movie count ({movie_count}). Triggering sync...")
-                sync_movies_with_tmdb(max_pages=8) # Fetch 160 movies sync
-                load_prolog_kb() # Refresh Prolog with new movies
+                from .tasks import fetch_popular_movies
+                print(f"Low movie count ({movie_count}). Triggering async sync...")
+                fetch_popular_movies.delay() # Run in Celery
+                return Response({'message': 'Initializing AI Knowledge Base (this may take a minute on first launch)...', 'status': 'building'}, status=status.HTTP_202_ACCEPTED)
             except Exception as e:
-                print(f"Sync fallback failed: {e}")
+                print(f"Async sync fallback failed: {e}")
 
         recommendations = get_recommendations(genre, mood, age, search_query, user_id)
         
