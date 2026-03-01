@@ -42,7 +42,7 @@ export default function Home() {
   const [asyncBuildMessage, setAsyncBuildMessage] = useState('');
 
   // Intersection Observer for infinite scrolling bottom trigger
-  const { ref: loadMoreRef, inView } = useInView();
+  const { ref: loadMoreRef, inView } = useInView({ rootMargin: '400px' });
 
   useEffect(() => {
     const uid = localStorage.getItem('ai_user_id');
