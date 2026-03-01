@@ -124,19 +124,37 @@ def load_prolog_kb():
     try:
         movies = Movie.objects.all().only('tmdb_id', 'title', 'genres', 'moods', 'min_age', 'release_year', 'popularity')
         new_count = 0
+        
+        def safe_prolog_atom(s):
+            if not isinstance(s, str):
+                s = str(s)
+            s = s.replace('\\', ' ')
+            s = s.replace('\n', ' ').replace('\r', ' ')
+            # Standard prolog single-quote escaping is two single quotes
+            s = s.replace("'", "''")
+            # Remove characters that might break PySWIP FFI 
+            s = "".join(c for c in s if ord(c) < 128 and c.isprintable())
+            return s.strip()
+
         for m in movies:
             if m.tmdb_id in _loaded_tmdb_ids:
                 continue  # Already in Prolog, skip
             
-            genres_str = "[" + ",".join([f"'{str(g).lower()}'" for g in m.genres]) + "]"
-            moods_str = "[" + ",".join([f"'{str(mood).lower()}'" for mood in m.moods]) + "]"
-            title = m.title.replace("'", "\\'")
+            # safely parse lists
+            g_list = m.genres if isinstance(m.genres, list) else []
+            m_list = m.moods if isinstance(m.moods, list) else []
+            
+            genres_str = "[" + ",".join([f"'{safe_prolog_atom(g).lower()}'" for g in g_list]) + "]"
+            moods_str = "[" + ",".join([f"'{safe_prolog_atom(mood).lower()}'" for mood in m_list]) + "]"
+            title = safe_prolog_atom(m.title)
+            
             try:
                 fact_str = f"movie({m.tmdb_id}, '{title}', {genres_str}, {moods_str}, {m.min_age}, {m.release_year}, {int(m.popularity)})"
                 prolog.assertz(fact_str)
                 _loaded_tmdb_ids.add(m.tmdb_id)
                 new_count += 1
-            except: pass
+            except Exception as e:
+                print(f"Failed to assert movie {m.tmdb_id}: '{title}' - error: {e}")
         
         if new_count > 0:
             print(f"Loaded {new_count} new movies into Prolog KB (total: {len(_loaded_tmdb_ids)})")
