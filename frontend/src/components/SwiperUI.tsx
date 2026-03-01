@@ -63,7 +63,7 @@ export default function SwiperUI({ movies, onLike, onDislike, onExplain }: any) 
     return (
         <div className="relative h-[650px] w-full max-w-sm mx-auto flex items-center justify-center">
 
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence>
                 {[...visibleCards].reverse().map((movie: any, reverseIndex: number) => {
                     // Because we reversed, the real top card is the LAST one in the mapped array
                     const isTop = reverseIndex === visibleCards.length - 1;
@@ -71,7 +71,6 @@ export default function SwiperUI({ movies, onLike, onDislike, onExplain }: any) 
 
                     return (
                         <motion.div
-                            layout
                             key={movie.title}
                             className="absolute inset-0 w-full h-full rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden border border-white/10 bg-[#0B0F14]"
                             style={{
