@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 
 interface AuthModalProps {
     onClose: () => void;
-    onLoginSuccess: (user: { user_id: number; username: string }) => void;
+    onLoginSuccess: (user: { user_id: number; username: string; age?: number }) => void;
 }
 
 export default function AuthModal({ onClose, onLoginSuccess }: AuthModalProps) {

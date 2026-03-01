@@ -111,7 +111,24 @@ class RecommendMovieView(APIView):
         if not recommendations:
              return Response({"message": "No movies found matching your preferences. Try adjusting them!"}, status=status.HTTP_200_OK)
              
-        return Response({"recommendations": recommendations}, status=status.HTTP_200_OK)
+        # Optional Pagination Support for Infinite Grid Scroll
+        page = int(request.data.get('page', 1))
+        limit = int(request.data.get('limit', 20)) # default 20 per page
+        
+        start_idx = (page - 1) * limit
+        end_idx = start_idx + limit
+        
+        paginated_recs = recommendations[start_idx:end_idx]
+        
+        # Calculate if there is a next page
+        has_next = end_idx < len(recommendations)
+        next_page = page + 1 if has_next else None
+
+        return Response({
+            "recommendations": paginated_recs,
+            "nextCursor": next_page,
+            "totalResults": len(recommendations)
+        }, status=status.HTTP_200_OK)
 class SetupDatabaseView(APIView):
     """
     Temporary view to trigger database sync on Render Free Tier 

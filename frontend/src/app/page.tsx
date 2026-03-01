@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInView } from 'react-intersection-observer';
 import PreferenceForm from '@/components/PreferenceForm';
 import MovieCard from '@/components/MovieCard';
 import ExplanationModal from '@/components/ExplanationModal';
@@ -17,20 +19,30 @@ interface Movie {
   year?: string;
   popularity?: number;
   tmdb_id?: number;
+  genres?: string[];
+}
+
+interface FetchRecommendationsParams {
+  genre: string;
+  mood: string;
+  age: number;
+  search_query: string;
+  user_id?: number;
+  pageParam?: number;
 }
 
 export default function Home() {
-  const [movies, setMovies] = useState<Movie[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
-
   const [currentPrefs, setCurrentPrefs] = useState({ genre: 'any', mood: 'any', age: 18, search_query: '' });
   const [searchQuery, setSearchQuery] = useState('');
 
   const [isSwipeMode, setIsSwipeMode] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [user, setUser] = useState<{ user_id: number; username: string; age?: number } | null>(null);
+  const [asyncBuildMessage, setAsyncBuildMessage] = useState('');
+
+  // Intersection Observer for infinite scrolling bottom trigger
+  const { ref: loadMoreRef, inView } = useInView();
 
   useEffect(() => {
     const uid = localStorage.getItem('ai_user_id');
@@ -52,67 +64,75 @@ export default function Home() {
     setUser(null);
   };
 
-  const fetchRecommendations = async (preferences: { genre: string; mood: string; age: number; search_query?: string }, isRetry = false) => {
-    if (!isRetry) {
-      setIsLoading(true);
-      setError('');
-    }
+  // --- TANSTACK REACT QUERY: INFINITE FETCH ---
+  const fetchMovies = async ({ pageParam = 1, queryKey }: any) => {
+    const [_key, prefs, userId] = queryKey;
+    const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const API_URL = rawApiUrl.replace(/\/$/, '');
 
-    try {
-      // Use environment variable for production, fallback to localhost for local dev
-      const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const API_URL = rawApiUrl.replace(/\/$/, '');
-      const payload = { ...preferences, user_id: user?.user_id };
-      const response = await fetch(`${API_URL}/api/recommend/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+    const payload = { ...prefs, user_id: userId, page: pageParam, limit: 20 };
 
-      if (response.status === 202) {
-        // Backend is asynchronously building the knowledge base via Celery.
-        const data = await response.json();
-        setError(data.message); // Temporarily show the building message
-        setMovies([]);
-        // Poll again in 5 seconds
-        setTimeout(() => fetchRecommendations(preferences, true), 5000);
-        return;
-      }
+    const response = await fetch(`${API_URL}/api/recommend/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
 
+    if (response.status === 202) {
       const data = await response.json();
-
-      if (!response.ok) throw new Error(data.message || 'Failed to fetch recommendations');
-
-      if (data.message && (!data.recommendations || data.recommendations.length === 0)) {
-        setError(data.message);
-        setMovies([]);
-      } else {
-        setError('');
-        setMovies(data.recommendations);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong');
-    } finally {
-      if (!isRetry || (isRetry && error === '')) {
-        setIsLoading(false);
-      }
+      setAsyncBuildMessage(data.message);
+      throw new Error("INITIALIZING_DB"); // Handled as loading state below
     }
+
+    setAsyncBuildMessage('');
+    const data = await response.json();
+
+    if (!response.ok) throw new Error(data.message || 'Failed to fetch recommendations');
+    if (data.message && (!data.recommendations || data.recommendations.length === 0)) {
+      throw new Error(data.message);
+    }
+
+    return data;
   };
+
+  const {
+    data,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    status
+  } = useInfiniteQuery({
+    queryKey: ['recommendations', currentPrefs, user?.user_id],
+    queryFn: fetchMovies,
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    retry: (failureCount, error) => {
+      // If DB is building, retry every 5 seconds infinitely
+      if (error.message === "INITIALIZING_DB") return true;
+      return failureCount < 3;
+    },
+    retryDelay: (attemptIndex, error) => error.message === "INITIALIZING_DB" ? 5000 : 1000,
+  });
+
+  // Automatically fetch next page if user scrolls to bottom
+  useEffect(() => {
+    if (inView && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Flatten the array of pages into a single `movies` array
+  const movies = data ? data.pages.flatMap((page) => page.recommendations) : [];
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchRecommendations({ ...currentPrefs, search_query: searchQuery });
+    setCurrentPrefs({ ...currentPrefs, search_query: searchQuery });
   };
 
   const handleFormSubmit = (preferences: { genre: string; mood: string; age: number; search_query?: string }) => {
-    const updatedPrefs = {
-      ...preferences,
-      search_query: searchQuery
-    };
-    setCurrentPrefs(updatedPrefs);
-    fetchRecommendations(updatedPrefs);
+    setCurrentPrefs({ ...preferences, search_query: searchQuery });
   };
 
   const handleRateMovie = async (movie: Movie, liked: boolean) => {
@@ -189,25 +209,31 @@ export default function Home() {
 
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start">
           {/* Sidebar Area - Preference Form */}
-          <div className="lg:w-1/3 shrink-0 lg:sticky lg:top-8 w-full">
+          <div className="lg:w-1/3 shrink-0 lg:sticky lg:top-8 w-full z-10">
             <PreferenceForm
               onSubmit={handleFormSubmit}
-              isLoading={isLoading}
+              isLoading={status === 'pending' || isFetching}
               userAge={user?.age}
             />
 
-            {error && (
-              <div className="mt-6 p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-lg text-center">
-                {error}
+            {error && error.message !== "INITIALIZING_DB" && (
+              <div className="mt-6 p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-lg text-center font-bold shadow-lg">
+                {error.message.replace("INITIALIZING_DB", "")}
+              </div>
+            )}
+
+            {asyncBuildMessage && (
+              <div className="mt-6 p-4 bg-yellow-900/50 border border-yellow-500 text-yellow-200 rounded-lg text-center animate-pulse shadow-lg font-bold">
+                {asyncBuildMessage}
               </div>
             )}
           </div>
 
           {/* Main Content Area - Results */}
-          <div className="lg:w-2/3">
+          <div className="lg:w-2/3 w-full">
             {movies.length > 0 ? (
               <div>
-                <h2 className="text-3xl font-bold mb-8 border-b border-white/10 pb-4 text-[#E5E7EB] text-center lg:text-left">
+                <h2 className="text-3xl font-bold mb-8 border-b border-white/10 pb-4 text-[#E5E7EB] text-center lg:text-left drop-shadow-md">
                   {isSwipeMode ? 'Discover Movies' : 'Top Matches for You'}
                 </h2>
 
@@ -219,31 +245,53 @@ export default function Home() {
                     onExplain={setSelectedMovie}
                   />
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {movies.map(movie => (
-                      <MovieCard
-                        key={movie.title}
-                        movie={movie}
-                        onExplainClick={setSelectedMovie}
-                      />
-                    ))}
-                  </div>
+                  <>
+                    {/* CSS Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      {movies.map((movie, index) => (
+                        <MovieCard
+                          key={`${movie.title}-${index}`}
+                          movie={movie}
+                          index={index % 20} // Reset animation delay every page load
+                          onExplainClick={setSelectedMovie}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Infinite Scroll Trigger */}
+                    <div ref={loadMoreRef} className="w-full h-24 flex items-center justify-center mt-8">
+                      {isFetchingNextPage ? (
+                        <div className="flex items-center gap-3 text-indigo-400">
+                          <div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
+                          <span className="font-bold">Loading more...</span>
+                        </div>
+                      ) : hasNextPage ? (
+                        <span className="text-gray-500 text-sm">Scroll for more</span>
+                      ) : (
+                        <span className="text-gray-500 text-sm">You've reached the end of the matches!</span>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
             ) : (
-              !isLoading && !error && (
-                <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-[#9CA3AF] border-2 border-dashed border-white/10 rounded-[20px] p-8 text-center bg-white/5 backdrop-blur-md shadow-lg">
-                  <svg className="w-20 h-20 mb-6 text-[#9CA3AF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg>
-                  <p className="text-2xl font-semibold mb-2 text-[#E5E7EB]">No Recommendations Yet</p>
+              status !== 'pending' && !error && !asyncBuildMessage && (
+                <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-[#9CA3AF] border-2 border-dashed border-white/10 rounded-[24px] p-8 text-center bg-white/5 backdrop-blur-md shadow-xl">
+                  <svg className="w-24 h-24 mb-6 text-[#9CA3AF]/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg>
+                  <p className="text-2xl font-bold mb-2 text-[#E5E7EB]">No Recommendations Yet</p>
                   <p className="text-lg">Tweak your preferences and ask the AI Engine.</p>
                 </div>
               )
             )}
 
-            {isLoading && (
-              <div className="h-full min-h-[400px] flex flex-col items-center justify-center">
-                <div className="w-16 h-16 border-4 border-gray-800 border-t-red-600 rounded-full animate-spin mb-6"></div>
-                <p className="text-xl text-gray-400 animate-pulse">Consulting the Knowledge Base...</p>
+            {status === 'pending' && !asyncBuildMessage && (
+              <div className="h-full min-h-[400px] flex flex-col items-center justify-center bg-white/5 backdrop-blur-md rounded-[24px] border border-white/10 shadow-lg">
+                <div className="relative w-24 h-24 mb-8">
+                  <div className="absolute inset-0 border-4 border-indigo-500/30 rounded-full animate-ping"></div>
+                  <div className="absolute inset-2 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+                <p className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400 animate-pulse">Running Prolog AI Engine...</p>
+                <p className="text-gray-400 mt-2">Computing logical similarities</p>
               </div>
             )}
           </div>
